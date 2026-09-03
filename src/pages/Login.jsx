@@ -1,4 +1,4 @@
-import { signInWithRedirect, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
+import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth, googleProvider } from '../firebase/config'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -12,7 +12,7 @@ export default function Login() {
   const [error, setError] = useState('')
 
   async function handleGoogle() {
-    try { await signInWithRedirect(auth, googleProvider) }
+    try { await signInWithPopup(auth, googleProvider) }
     catch (e) { setError(e.message) }
   }
 
