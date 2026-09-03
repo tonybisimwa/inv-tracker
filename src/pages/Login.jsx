@@ -1,8 +1,11 @@
 import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth, googleProvider } from '../firebase/config'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 
 export default function Login() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isNew, setIsNew] = useState(false)
@@ -25,6 +28,14 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
+        <div className="mb-6">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to home
+          </button>
+        </div>
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-green-400">INV Tracker</h1>
           <p className="text-gray-400 mt-2 text-sm">Your daily betting journal</p>
