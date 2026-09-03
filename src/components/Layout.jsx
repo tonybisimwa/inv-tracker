@@ -6,7 +6,7 @@ import { useAdmin } from '../hooks/useAdmin'
 
 export default function Layout({ children }) {
   const { user } = useAuth()
-  const { isAdmin } = useAdmin()
+  const { isAdmin, username } = useAdmin()
   const { pathname } = useLocation()
 
   const nav = [
@@ -39,7 +39,7 @@ export default function Layout({ children }) {
               Admin
             </Link>
           )}
-          <span className="text-sm text-gray-400">{user?.displayName || user?.email}</span>
+          <span className="text-sm text-gray-400 font-mono">{username || user?.email}</span>
           <button
             onClick={() => signOut(auth)}
             className="text-sm text-gray-400 hover:text-red-400 transition-colors"
