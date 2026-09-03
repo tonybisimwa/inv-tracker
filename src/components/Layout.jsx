@@ -2,13 +2,16 @@ import { Link, useLocation } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase/config'
 import { useAuth } from '../contexts/AuthContext'
+import { useAdmin } from '../hooks/useAdmin'
 
 export default function Layout({ children }) {
   const { user } = useAuth()
+  const { isAdmin } = useAdmin()
   const { pathname } = useLocation()
 
   const nav = [
     { to: '/', label: 'Dashboard' },
+    { to: '/plays', label: 'Plays' },
     { to: '/add', label: 'Add Bet' },
     { to: '/history', label: 'History' },
   ]
@@ -30,7 +33,12 @@ export default function Layout({ children }) {
             ))}
           </nav>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          {isAdmin && (
+            <Link to="/admin" className={`text-sm font-medium transition-colors ${pathname.startsWith('/admin') ? 'text-purple-400' : 'text-gray-500 hover:text-purple-400'}`}>
+              Admin
+            </Link>
+          )}
           <span className="text-sm text-gray-400">{user?.displayName || user?.email}</span>
           <button
             onClick={() => signOut(auth)}

@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { BarChart2 } from 'lucide-react'
 import { useBets } from '../hooks/useBets'
 import { groupByPeriod, summarize, fmtCurrency } from '../utils/calculations'
 import StatsCard from '../components/StatsCard'
@@ -11,11 +13,33 @@ const PERIODS = ['day', 'week', 'month', 'all']
 export default function Dashboard() {
   const { bets, loading } = useBets()
   const [period, setPeriod] = useState('week')
+  const [timedOut, setTimedOut] = useState(false)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!loading) return
+    const t = setTimeout(() => setTimedOut(true), 5000)
+    return () => clearTimeout(t)
+  }, [loading])
+
   const filtered = groupByPeriod(bets, period)
   const stats = summarize(filtered)
   const allStats = summarize(bets)
 
-  if (loading) return <Layout><div className="flex items-center justify-center h-64 text-gray-500">Loading...</div></Layout>
+  if (loading && !timedOut) return <Layout><div className="flex items-center justify-center h-64 text-gray-500">Loading...</div></Layout>
+
+  if (!loading && bets.length === 0 || timedOut && bets.length === 0) return (
+    <Layout>
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <BarChart2 className="w-12 h-12 text-gray-700 mb-4" />
+        <h2 className="text-lg font-semibold text-gray-400 mb-2">No bets tracked yet</h2>
+        <p className="text-sm text-gray-600 mb-6">Start logging your first bet to see your P&L, win rate, and bankroll curve here.</p>
+        <button onClick={() => navigate('/add')} className="bg-green-500 hover:bg-green-400 text-gray-950 font-semibold px-6 py-2.5 rounded-xl transition-colors">
+          + Add Your First Bet
+        </button>
+      </div>
+    </Layout>
+  )
 
   return (
     <Layout>

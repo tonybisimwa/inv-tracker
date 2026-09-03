@@ -16,9 +16,15 @@ export function AuthProvider({ children }) {
     return unsubscribe
   }, [])
 
+  if (loading) return (
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="text-green-400 text-sm animate-pulse">Loading...</div>
+    </div>
+  )
+
   return (
     <AuthContext.Provider value={{ user, loading }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   )
 }
