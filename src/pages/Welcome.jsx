@@ -35,17 +35,17 @@ export default function Welcome() {
           Your personal betting journal
         </div>
 
-        <h1 className="text-5xl font-bold leading-tight mb-4">
+        <h1 className="text-3xl sm:text-5xl font-bold leading-tight mb-4">
           Track your bets.<br />
           <span className="text-green-400">Know your edge.</span>
         </h1>
 
-        <p className="text-gray-400 text-lg mb-10 max-w-xl mx-auto">
+        <p className="text-gray-400 text-base sm:text-lg mb-8 max-w-xl mx-auto">
           Stop guessing. INV Tracker gives you a full picture of your daily P&L,
-          win rate, ROI, and bankroll — just like a trading journal, built for sports betting.
+          win rate, ROI, and bankroll — built for sports betting.
         </p>
 
-        <div className="flex gap-4 justify-center mb-16">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center mb-12">
           <button
             onClick={handleGoogle}
             className="flex items-center gap-3 bg-white text-gray-900 font-semibold px-6 py-3 rounded-xl hover:bg-gray-100 transition-colors"

@@ -44,13 +44,13 @@ export default function Dashboard() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-lg p-1">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h1 className="text-xl md:text-2xl font-bold">Dashboard</h1>
+          <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-lg p-1 w-full sm:w-auto">
             {PERIODS.map((p) => (
               <button key={p} onClick={() => setPeriod(p)}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${period === p ? 'bg-green-500 text-gray-950' : 'text-gray-400 hover:text-gray-100'}`}>
-                {p === 'all' ? 'All Time' : p.charAt(0).toUpperCase() + p.slice(1)}
+                className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors ${period === p ? 'bg-green-500 text-gray-950' : 'text-gray-400 hover:text-gray-100'}`}>
+                {p === 'all' ? 'All' : p.charAt(0).toUpperCase() + p.slice(1)}
               </button>
             ))}
           </div>

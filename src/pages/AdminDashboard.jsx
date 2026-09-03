@@ -32,12 +32,12 @@ export default function AdminDashboard() {
   return (
     <Layout>
       <div className="max-w-3xl mx-auto space-y-8">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+            <h1 className="text-xl md:text-2xl font-bold">Admin Dashboard</h1>
             <p className="text-gray-500 text-sm mt-1">Manage plays and track performance</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => updateSettings({ statsVisible: !settings.statsVisible })}
               className={`flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${
@@ -97,42 +97,34 @@ export default function AdminDashboard() {
           {plays.length === 0 ? (
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 text-center text-gray-600">No plays published yet.</div>
           ) : (
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-800 text-gray-500 text-xs">
-                    <th className="text-left px-5 py-3">Event</th>
-                    <th className="text-left px-5 py-3">Sport</th>
-                    <th className="text-left px-5 py-3">Tier</th>
-                    <th className="text-left px-5 py-3">Result</th>
-                    <th className="px-5 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {plays.map((play, i) => (
-                    <tr key={play.id} className={`border-b border-gray-800/50 last:border-0 ${i % 2 === 0 ? '' : 'bg-gray-800/20'}`}>
-                      <td className="px-5 py-3">
-                        <p className="font-medium truncate max-w-[180px]">{play.event}</p>
-                        <p className="text-xs text-green-400">{play.line}</p>
-                      </td>
-                      <td className="px-5 py-3 text-gray-400">{play.sport}</td>
-                      <td className="px-5 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded ${play.tier === 'vip' ? 'text-purple-400 bg-purple-500/10' : 'text-gray-400 bg-gray-800'}`}>
-                          {play.tier === 'vip' ? 'VIP' : 'Free'}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className={`text-xs font-medium ${play.result === 'win' ? 'text-green-400' : play.result === 'loss' ? 'text-red-400' : play.result === 'push' ? 'text-yellow-400' : 'text-gray-500'}`}>
-                          {play.result}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <button onClick={() => { if (window.confirm('Delete this play?')) deletePlay(play.id) }} className="text-gray-600 hover:text-red-400 text-xs transition-colors">Delete</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-2">
+              {plays.map((play) => (
+                <div key={play.id} className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-sm truncate">{play.event}</p>
+                      <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${play.tier === 'vip' ? 'text-purple-400 bg-purple-500/10' : 'text-gray-500 bg-gray-800'}`}>
+                        {play.tier === 'vip' ? 'VIP' : 'Free'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-xs text-green-400">{play.line}</p>
+                      <span className="text-gray-700">·</span>
+                      <p className="text-xs text-gray-500">{play.sport}</p>
+                      <span className="text-gray-700">·</span>
+                      <span className={`text-xs font-medium ${play.result === 'win' ? 'text-green-400' : play.result === 'loss' ? 'text-red-400' : play.result === 'push' ? 'text-yellow-400' : 'text-gray-500'}`}>
+                        {play.result}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { if (window.confirm('Delete this play?')) deletePlay(play.id) }}
+                    className="text-gray-600 hover:text-red-400 text-xs transition-colors flex-shrink-0"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </section>
