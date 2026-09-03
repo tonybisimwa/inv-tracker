@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { signInWithPopup } from 'firebase/auth'
+import { signInWithRedirect } from 'firebase/auth'
 import { TrendingUp, Trophy, BarChart2, Clock } from 'lucide-react'
 import { auth, googleProvider } from '../firebase/config'
 
@@ -14,7 +14,7 @@ export default function Welcome() {
   const navigate = useNavigate()
 
   async function handleGoogle() {
-    try { await signInWithPopup(auth, googleProvider) }
+    try { await signInWithRedirect(auth, googleProvider) }
     catch (e) { console.error(e) }
   }
 
