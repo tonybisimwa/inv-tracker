@@ -1,6 +1,8 @@
 import { usePlays } from '../hooks/usePlays'
+import { useTipsterSettings } from '../hooks/useTipsterSettings'
 import Layout from '../components/Layout'
 import { Link } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 
 function StatCard({ label, value, color = 'text-white' }) {
   return (
@@ -13,6 +15,7 @@ function StatCard({ label, value, color = 'text-white' }) {
 
 export default function AdminDashboard() {
   const { plays, updatePlay, deletePlay } = usePlays()
+  const { settings, updateSettings } = useTipsterSettings()
 
   const total = plays.length
   const pending = plays.filter((p) => p.result === 'pending').length
@@ -34,9 +37,26 @@ export default function AdminDashboard() {
             <h1 className="text-2xl font-bold">Admin Dashboard</h1>
             <p className="text-gray-500 text-sm mt-1">Manage plays and track performance</p>
           </div>
-          <Link to="/admin/publish" className="bg-green-500 hover:bg-green-400 text-black font-bold text-sm px-5 py-2 rounded-xl transition-colors">
-            + New Play
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => updateSettings({ statsVisible: !settings.statsVisible })}
+              className={`flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${
+                settings.statsVisible
+                  ? 'border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20'
+                  : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
+              }`}
+              title={settings.statsVisible ? 'Stats card is public — click to hide' : 'Stats card is hidden — click to show'}
+            >
+              {settings.statsVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+              Stats {settings.statsVisible ? 'Public' : 'Hidden'}
+            </button>
+            <Link to="/admin/vip" className="text-xs font-semibold border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 px-3 py-2 rounded-lg transition-colors">
+              VIP Members
+            </Link>
+            <Link to="/admin/publish" className="bg-green-500 hover:bg-green-400 text-black font-bold text-sm px-5 py-2 rounded-xl transition-colors">
+              + New Play
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

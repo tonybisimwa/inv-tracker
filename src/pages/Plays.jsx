@@ -1,5 +1,8 @@
-import { Star, BookOpen } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Star, BookOpen, Lock } from 'lucide-react'
 import { usePlays } from '../hooks/usePlays'
+import { useAdmin } from '../hooks/useAdmin'
+import { useTipsterSettings } from '../hooks/useTipsterSettings'
 import PlayCard from '../components/PlayCard'
 import Layout from '../components/Layout'
 
@@ -30,6 +33,9 @@ function Record({ plays }) {
 
 export default function Plays() {
   const { plays, loading } = usePlays()
+  const { isVIP } = useAdmin()
+  const { settings } = useTipsterSettings()
+  const navigate = useNavigate()
 
   if (loading) return <Layout><div className="flex items-center justify-center h-64 text-gray-500">Loading plays...</div></Layout>
 
@@ -45,7 +51,7 @@ export default function Plays() {
           <p className="text-gray-500 text-sm mt-1">{today}</p>
         </div>
 
-        <Record plays={plays} />
+        {settings.statsVisible && <Record plays={plays} />}
 
         <section>
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Free Plays</h2>
@@ -63,26 +69,43 @@ export default function Plays() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">VIP Plays</h2>
-            <span className="text-xs bg-purple-500/10 border border-purple-500/30 text-purple-400 px-3 py-1 rounded-full">Coming Soon</span>
+            {isVIP && (
+              <span className="text-xs bg-purple-500/10 border border-purple-500/30 text-purple-400 px-3 py-1 rounded-full flex items-center gap-1">
+                <Star className="w-3 h-3" /> Active
+              </span>
+            )}
           </div>
 
           {vipPlays.length === 0 ? (
-            <div className="bg-gray-900 border border-purple-500/20 rounded-2xl p-8 text-center space-y-3">
-              <Star className="w-8 h-8 text-purple-400 mx-auto" />
-              <p className="font-semibold text-gray-200">VIP Membership Launching Soon</p>
-              <p className="text-sm text-gray-500 max-w-xs mx-auto">Get access to 5 daily plays, a 2-unit best bet, and a statistically-backed lottery parlay every day.</p>
-              <div className="flex gap-2 justify-center pt-2 flex-wrap">
-                <span className="text-xs bg-gray-800 text-gray-400 px-3 py-1.5 rounded-full">Weekly · $9.99</span>
-                <span className="text-xs bg-gray-800 text-gray-400 px-3 py-1.5 rounded-full">Monthly · $29.99</span>
-                <span className="text-xs bg-gray-800 text-gray-400 px-3 py-1.5 rounded-full">Yearly · $199.99</span>
+            isVIP ? (
+              <div className="bg-gray-900 border border-purple-500/20 rounded-2xl p-8 text-center text-gray-600">
+                No VIP plays posted yet. Check back soon.
               </div>
-              <button className="mt-2 bg-purple-500/20 border border-purple-500/40 text-purple-400 text-sm font-medium px-6 py-2 rounded-lg cursor-not-allowed opacity-70">
-                Notify Me When Live
-              </button>
-            </div>
+            ) : (
+              <div className="bg-gray-900 border border-purple-500/20 rounded-2xl p-8 text-center space-y-4">
+                <Lock className="w-8 h-8 text-purple-400 mx-auto" />
+                <div>
+                  <p className="font-semibold text-gray-200">VIP Members Only</p>
+                  <p className="text-sm text-gray-500 max-w-xs mx-auto mt-1">
+                    5 daily plays · 2-unit Best Bet · Statistically-backed Lottery Parlay
+                  </p>
+                </div>
+                <div className="flex gap-2 justify-center flex-wrap">
+                  <span className="text-xs bg-gray-800 text-gray-400 px-3 py-1.5 rounded-full">Weekly · $9.99</span>
+                  <span className="text-xs bg-gray-800 text-gray-400 px-3 py-1.5 rounded-full">Monthly · $29.99</span>
+                  <span className="text-xs bg-gray-800 text-gray-400 px-3 py-1.5 rounded-full">Yearly · $199.99</span>
+                </div>
+                <button
+                  onClick={() => navigate('/vip')}
+                  className="bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors"
+                >
+                  Unlock VIP Access
+                </button>
+              </div>
+            )
           ) : (
             <div className="space-y-4">
-              {vipPlays.map((p) => <PlayCard key={p.id} play={p} locked={true} />)}
+              {vipPlays.map((p) => <PlayCard key={p.id} play={p} locked={!isVIP} />)}
             </div>
           )}
         </section>

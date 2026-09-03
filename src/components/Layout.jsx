@@ -1,12 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
+import { Star } from 'lucide-react'
 import { auth } from '../firebase/config'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdmin } from '../hooks/useAdmin'
 
 export default function Layout({ children }) {
   const { user } = useAuth()
-  const { isAdmin, username } = useAdmin()
+  const { isAdmin, isVIP, username } = useAdmin()
   const { pathname } = useLocation()
 
   const nav = [
@@ -34,12 +35,20 @@ export default function Layout({ children }) {
           </nav>
         </div>
         <div className="flex items-center gap-4">
+          {!isVIP && !isAdmin && (
+            <Link to="/vip" className="text-xs font-semibold bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg transition-colors">
+              Upgrade to VIP
+            </Link>
+          )}
           {isAdmin && (
             <Link to="/admin" className={`text-sm font-medium transition-colors ${pathname.startsWith('/admin') ? 'text-purple-400' : 'text-gray-500 hover:text-purple-400'}`}>
               Admin
             </Link>
           )}
-          <span className="text-sm text-gray-400 font-mono">{username || user?.email}</span>
+          <div className="flex items-center gap-2">
+            {isVIP && <Star className="w-3.5 h-3.5 text-purple-400" />}
+            <span className="text-sm text-gray-400 font-mono">{username || user?.email}</span>
+          </div>
           <button
             onClick={() => signOut(auth)}
             className="text-sm text-gray-400 hover:text-red-400 transition-colors"
