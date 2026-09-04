@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
-import { useAdmin } from './hooks/useAdmin'
+import { PlaysProvider } from './contexts/PlaysContext'
+import { SettingsProvider } from './contexts/SettingsContext'
 import Login from './pages/Login'
 import Welcome from './pages/Welcome'
 import Dashboard from './pages/Dashboard'
@@ -18,9 +19,7 @@ function PrivateRoute({ children }) {
 }
 
 function AdminRoute({ children }) {
-  const { user } = useAuth()
-  const { isAdmin, loading } = useAdmin()
-  if (loading) return null
+  const { user, isAdmin } = useAuth()
   if (!user || !isAdmin) return <Navigate to="/" replace />
   return children
 }
@@ -47,7 +46,11 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <AppRoutes />
+        <PlaysProvider>
+          <SettingsProvider>
+            <AppRoutes />
+          </SettingsProvider>
+        </PlaysProvider>
       </BrowserRouter>
     </AuthProvider>
   )
