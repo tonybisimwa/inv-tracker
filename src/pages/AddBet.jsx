@@ -9,10 +9,19 @@ export default function AddBet() {
   const { addBet } = useBets()
   const navigate = useNavigate()
   const [prefill, setPrefill] = useState(null)
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   async function handleSubmit(data) {
-    await addBet(data)
-    navigate('/')
+    setError('')
+    setSaving(true)
+    try {
+      await addBet(data)
+      navigate('/')
+    } catch (e) {
+      setError('Failed to save bet. Please try again.')
+      setSaving(false)
+    }
   }
 
   function handleExtracted(data) {
@@ -42,7 +51,12 @@ export default function AddBet() {
               </button>
             )}
           </div>
-          <BetForm key={JSON.stringify(prefill)} initial={prefill} onSubmit={handleSubmit} submitLabel="Save Bet" />
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-sm text-red-400 mb-4">
+              {error}
+            </div>
+          )}
+          <BetForm key={JSON.stringify(prefill)} initial={prefill} onSubmit={handleSubmit} submitLabel={saving ? 'Saving...' : 'Save Bet'} disabled={saving} />
         </div>
       </div>
     </Layout>

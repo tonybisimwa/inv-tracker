@@ -4,7 +4,7 @@ import { calcPL, calcPayout, fmtCurrency } from '../utils/calculations'
 const SPORTS = ['NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB', 'Soccer', 'UFC/MMA', 'Tennis', 'Golf', 'Boxing', 'Other']
 const BET_TYPES = ['Spread', 'Moneyline', 'Over/Under', 'Parlay', 'Prop', 'Futures', 'Teaser', 'Other']
 
-export default function BetForm({ initial, onSubmit, onCancel, submitLabel }) {
+export default function BetForm({ initial, onSubmit, onCancel, submitLabel, disabled }) {
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState(initial || {
     date: today, sport: 'NFL', event: '', betType: 'Spread',
@@ -21,7 +21,12 @@ export default function BetForm({ initial, onSubmit, onCancel, submitLabel }) {
 
   function handleSubmit(e) {
     e.preventDefault()
-    onSubmit({ ...form, odds: parseInt(form.odds), stake: parseFloat(form.stake) })
+    const parsedOdds = parseInt(form.odds)
+    const parsedStake = parseFloat(form.stake)
+    if (!form.event.trim()) return alert('Please enter an event name.')
+    if (!parsedOdds) return alert('Please enter the odds (e.g. -110 or +250).')
+    if (!parsedStake || parsedStake <= 0) return alert('Please enter a valid stake amount.')
+    onSubmit({ ...form, odds: parsedOdds, stake: parsedStake })
   }
 
   return (
@@ -44,7 +49,7 @@ export default function BetForm({ initial, onSubmit, onCancel, submitLabel }) {
       <div>
         <label className="block text-xs text-gray-400 mb-1">Event / Game</label>
         <input value={form.event} onChange={(e) => set('event', e.target.value)} placeholder="e.g. Chiefs vs Raiders"
-          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" required />
+          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -58,12 +63,12 @@ export default function BetForm({ initial, onSubmit, onCancel, submitLabel }) {
         <div>
           <label className="block text-xs text-gray-400 mb-1">Odds (American)</label>
           <input type="number" value={form.odds} onChange={(e) => set('odds', e.target.value)} placeholder="-110"
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" required />
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" />
         </div>
         <div>
           <label className="block text-xs text-gray-400 mb-1">Stake ($)</label>
           <input type="number" step="0.01" min="0.01" value={form.stake} onChange={(e) => set('stake', e.target.value)} placeholder="100"
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" required />
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" />
         </div>
       </div>
 
@@ -100,7 +105,8 @@ export default function BetForm({ initial, onSubmit, onCancel, submitLabel }) {
       </div>
 
       <div className="flex gap-3 pt-2">
-        <button type="submit" className="flex-1 bg-green-500 hover:bg-green-400 text-gray-950 font-semibold py-2.5 rounded-lg transition-colors">
+        <button type="submit" disabled={disabled}
+          className="flex-1 bg-green-500 hover:bg-green-400 disabled:opacity-60 disabled:cursor-not-allowed text-gray-950 font-semibold py-2.5 rounded-lg transition-colors">
           {submitLabel ?? (initial ? 'Update Bet' : 'Save Bet')}
         </button>
         {onCancel && (
