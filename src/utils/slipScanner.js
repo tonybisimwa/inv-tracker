@@ -59,7 +59,10 @@ async function compressImage(file) {
   })
 }
 
-const EXTRACT_PROMPT = `Analyze this sports betting slip screenshot and extract the bet details. Return ONLY a valid JSON object with these fields:
+function buildPrompt() {
+  const today = new Date().toISOString().split('T')[0]
+  const year  = new Date().getFullYear()
+  return `Analyze this sports betting slip screenshot and extract the bet details. Today's date is ${today} (year: ${year}). Return ONLY a valid JSON object with these fields:
 
 {
   "sport": one of ["NFL","NBA","MLB","NHL","NCAAF","NCAAB","Soccer","UFC/MMA","Tennis","Golf","Boxing","Other"],
@@ -67,11 +70,12 @@ const EXTRACT_PROMPT = `Analyze this sports betting slip screenshot and extract 
   "betType": one of ["Spread","Moneyline","Over/Under","Parlay","Prop","Futures","Teaser","Other"],
   "odds": American odds as an integer (e.g. -110 or 250, no plus sign needed for positive),
   "stake": wager amount as a number (no $ sign),
-  "date": "YYYY-MM-DD" if visible, otherwise null,
+  "date": "YYYY-MM-DD" using year ${year} unless the slip clearly shows a different year — if no date is visible use "${today}",
   "notes": any relevant details like spread value, total line, specific prop description, or null
 }
 
 If a field cannot be determined confidently, use null. Return only the JSON, no explanation.`
+}
 
 export async function scanSlip(file, apiKey) {
   if (!apiKey) throw new Error('OpenAI API key not configured. Add VITE_OPENAI_API_KEY to your .env file.')
@@ -92,7 +96,7 @@ export async function scanSlip(file, apiKey) {
           role: 'user',
           content: [
             { type: 'image_url', image_url: { url: imageDataUrl, detail: 'low' } },
-            { type: 'text', text: EXTRACT_PROMPT },
+            { type: 'text', text: buildPrompt() },
           ],
         }],
       })

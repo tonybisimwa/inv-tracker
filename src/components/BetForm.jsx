@@ -4,7 +4,7 @@ import { calcPL, calcPayout, fmtCurrency } from '../utils/calculations'
 const SPORTS = ['NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB', 'Soccer', 'UFC/MMA', 'Tennis', 'Golf', 'Boxing', 'Other']
 const BET_TYPES = ['Spread', 'Moneyline', 'Over/Under', 'Parlay', 'Prop', 'Futures', 'Teaser', 'Other']
 
-export default function BetForm({ initial, onSubmit, onCancel }) {
+export default function BetForm({ initial, onSubmit, onCancel, submitLabel }) {
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState(initial || {
     date: today, sport: 'NFL', event: '', betType: 'Spread',
@@ -26,7 +26,7 @@ export default function BetForm({ initial, onSubmit, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs text-gray-400 mb-1">Date</label>
           <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)}
@@ -47,7 +47,7 @@ export default function BetForm({ initial, onSubmit, onCancel }) {
           className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" required />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="block text-xs text-gray-400 mb-1">Bet Type</label>
           <select value={form.betType} onChange={(e) => set('betType', e.target.value)}
@@ -101,7 +101,7 @@ export default function BetForm({ initial, onSubmit, onCancel }) {
 
       <div className="flex gap-3 pt-2">
         <button type="submit" className="flex-1 bg-green-500 hover:bg-green-400 text-gray-950 font-semibold py-2.5 rounded-lg transition-colors">
-          {initial ? 'Update Bet' : 'Save Bet'}
+          {submitLabel ?? (initial ? 'Update Bet' : 'Save Bet')}
         </button>
         {onCancel && (
           <button type="button" onClick={onCancel} className="px-6 py-2.5 border border-gray-700 rounded-lg text-gray-400 hover:text-gray-100 transition-colors">

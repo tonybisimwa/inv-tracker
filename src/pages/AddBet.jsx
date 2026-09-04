@@ -42,7 +42,7 @@ export default function AddBet() {
               </button>
             )}
           </div>
-          <BetForm key={JSON.stringify(prefill)} initial={prefill} onSubmit={handleSubmit} />
+          <BetForm key={JSON.stringify(prefill)} initial={prefill} onSubmit={handleSubmit} submitLabel="Save Bet" />
         </div>
       </div>
     </Layout>
