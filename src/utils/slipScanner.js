@@ -1,7 +1,11 @@
 import OpenAI from 'openai'
+import { mapWithConcurrency } from './concurrency'
 
 const RATE_LIMIT_KEY = 'inv_scan_log'
 const MAX_SCANS_PER_HOUR = 20
+
+// Slips scanned at once. Keeps us clear of OpenAI per-minute limits on a burst upload.
+const CONCURRENCY = 3
 
 function getRateLimitLog() {
   try {
@@ -54,7 +58,7 @@ async function compressImage(file) {
         reader.readAsDataURL(blob)
       }, 'image/jpeg', 0.85)
     }
-    img.onerror = reject
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image.')) }
     img.src = url
   })
 }
@@ -125,4 +129,26 @@ export async function scanSlip(file, apiKey) {
       throw err
     }
   }
+}
+
+/**
+ * Scans several slips at once, at most CONCURRENCY in flight.
+ * One slip failing never stops the others — every file gets its own result.
+ * `onStart(i)` / `onSettled(i, result)` fire as each slip moves so the UI can
+ * update live. Returns results positionally matched to `files`:
+ *   { status: 'done', data } | { status: 'error', error }
+ */
+export async function scanSlips(files, apiKey, { onStart, onSettled } = {}) {
+  const toResult = (r) =>
+    r.status === 'done'
+      ? { status: 'done', data: r.value }
+      : { status: 'error', error: r.reason?.message || 'Failed to scan slip.' }
+
+  const settled = await mapWithConcurrency(
+    files,
+    CONCURRENCY,
+    (file) => scanSlip(file, apiKey),
+    { onStart, onSettled: (i, r) => onSettled?.(i, toResult(r)) }
+  )
+  return settled.map(toResult)
 }

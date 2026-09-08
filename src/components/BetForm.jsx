@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { calcPL, calcPayout, fmtCurrency } from '../utils/calculations'
+import { calcPL, calcPayout, fmtCurrency, validateBet } from '../utils/calculations'
 
 const SPORTS = ['NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB', 'Soccer', 'UFC/MMA', 'Tennis', 'Golf', 'Boxing', 'Other']
 const BET_TYPES = ['Spread', 'Moneyline', 'Over/Under', 'Parlay', 'Prop', 'Futures', 'Teaser', 'Other']
@@ -10,6 +10,7 @@ export default function BetForm({ initial, onSubmit, onCancel, submitLabel, disa
     date: today, sport: 'NFL', event: '', betType: 'Spread',
     odds: '', stake: '', outcome: 'pending', notes: '',
   })
+  const [errors, setErrors] = useState([])
 
   const odds = parseInt(form.odds) || 0
   const stake = parseFloat(form.stake) || 0
@@ -17,16 +18,20 @@ export default function BetForm({ initial, onSubmit, onCancel, submitLabel, disa
     ? calcPL(stake, odds, form.outcome)
     : null
 
-  function set(k, v) { setForm((f) => ({ ...f, [k]: v })) }
+  function set(k, v) {
+    setForm((f) => ({ ...f, [k]: v }))
+    setErrors([])
+  }
 
   function handleSubmit(e) {
     e.preventDefault()
-    const parsedOdds = parseInt(form.odds)
-    const parsedStake = parseFloat(form.stake)
-    if (!form.event.trim()) return alert('Please enter an event name.')
-    if (!parsedOdds) return alert('Please enter the odds (e.g. -110 or +250).')
-    if (!parsedStake || parsedStake <= 0) return alert('Please enter a valid stake amount.')
-    onSubmit({ ...form, odds: parsedOdds, stake: parsedStake })
+    const problems = validateBet(form)
+    if (problems.length > 0) {
+      setErrors(problems.map((p) => p.message))
+      return
+    }
+    setErrors([])
+    onSubmit({ ...form, odds: parseInt(form.odds), stake: parseFloat(form.stake) })
   }
 
   return (
@@ -103,6 +108,12 @@ export default function BetForm({ initial, onSubmit, onCancel, submitLabel, disa
         <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={2} placeholder="Optional notes..."
           className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500 resize-none" />
       </div>
+
+      {errors.length > 0 && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-sm text-red-400 space-y-1">
+          {errors.map((msg) => <p key={msg}>{msg}</p>)}
+        </div>
+      )}
 
       <div className="flex gap-3 pt-2">
         <button type="submit" disabled={disabled}

@@ -19,6 +19,18 @@ export function fmtOdds(odds) {
   return odds > 0 ? `+${odds}` : `${odds}`
 }
 
+// Fields a bet needs before it can be saved, in the order we surface them
+const REQUIRED = [
+  { field: 'event', label: 'event',  message: 'Please enter an event name.',                  ok: (b) => !!String(b.event ?? '').trim() },
+  { field: 'odds',  label: 'odds',   message: 'Please enter the odds (e.g. -110 or +250).',   ok: (b) => !!parseInt(b.odds) },
+  { field: 'stake', label: 'stake',  message: 'Please enter a valid stake amount.',           ok: (b) => parseFloat(b.stake) > 0 },
+]
+
+// Returns [{ field, label, message }] for every missing/invalid field — empty means valid
+export function validateBet(bet) {
+  return REQUIRED.filter((r) => !r.ok(bet)).map(({ field, label, message }) => ({ field, label, message }))
+}
+
 export function groupByPeriod(bets, period) {
   const now = new Date()
   return bets.filter((b) => {
