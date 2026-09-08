@@ -11,6 +11,7 @@ const TOP_NAV = [
   { to: '/plays',   label: 'Plays' },
   { to: '/add',     label: 'Add Bet' },
   { to: '/history', label: 'History' },
+  { to: '/academy', label: 'Academy' },
 ]
 
 const BOTTOM_NAV = [

@@ -1,8 +1,9 @@
+import { useState } from 'react'
 import { usePlays } from '../hooks/usePlays'
 import { useTipsterSettings } from '../hooks/useTipsterSettings'
 import Layout from '../components/Layout'
 import { Link } from 'react-router-dom'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Pencil, Check, X } from 'lucide-react'
 
 function StatCard({ label, value, color = 'text-white' }) {
   return (
@@ -16,6 +17,23 @@ function StatCard({ label, value, color = 'text-white' }) {
 export default function AdminDashboard() {
   const { plays, updatePlay, deletePlay } = usePlays()
   const { settings, updateSettings } = useTipsterSettings()
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+
+  function startEditName() {
+    setNameInput(settings.tipsterName || '')
+    setEditingName(true)
+  }
+
+  async function saveName() {
+    const trimmed = nameInput.trim()
+    if (trimmed) await updateSettings({ tipsterName: trimmed })
+    setEditingName(false)
+  }
+
+  function cancelEditName() {
+    setEditingName(false)
+  }
 
   const total = plays.length
   const pending = plays.filter((p) => p.result === 'pending').length
@@ -57,6 +75,34 @@ export default function AdminDashboard() {
               + New Play
             </Link>
           </div>
+        </div>
+
+        {/* Tipster name editor */}
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-gray-500 mb-1">Displayed tipster name</p>
+            {editingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') cancelEditName() }}
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-green-500"
+                  placeholder="e.g. Tony B. — Tipster"
+                />
+                <button onClick={saveName} className="text-green-400 hover:text-green-300 transition-colors" title="Save"><Check className="w-4 h-4" /></button>
+                <button onClick={cancelEditName} className="text-gray-500 hover:text-gray-300 transition-colors" title="Cancel"><X className="w-4 h-4" /></button>
+              </div>
+            ) : (
+              <p className="font-semibold text-gray-100 truncate">{settings.tipsterName || <span className="text-gray-500 italic">Not set</span>}</p>
+            )}
+          </div>
+          {!editingName && (
+            <button onClick={startEditName} className="flex-shrink-0 text-gray-500 hover:text-gray-300 transition-colors" title="Edit name">
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

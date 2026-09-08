@@ -12,6 +12,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import AdminPublish from './pages/AdminPublish'
 import AdminVIP from './pages/AdminVIP'
 import VIPCheckout from './pages/VIPCheckout'
+import Academy from './pages/Academy'
 
 function PrivateRoute({ children }) {
   const { user } = useAuth()
@@ -37,6 +38,7 @@ function AppRoutes() {
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       <Route path="/admin/publish" element={<AdminRoute><AdminPublish /></AdminRoute>} />
       <Route path="/admin/vip" element={<AdminRoute><AdminVIP /></AdminRoute>} />
+      <Route path="/academy" element={<PrivateRoute><Academy /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

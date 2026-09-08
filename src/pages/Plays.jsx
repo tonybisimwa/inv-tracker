@@ -1,23 +1,25 @@
 import { useNavigate } from 'react-router-dom'
-import { Star, BookOpen, Lock } from 'lucide-react'
+import { Star, BookOpen, Lock, ChevronRight } from 'lucide-react'
 import { usePlays } from '../hooks/usePlays'
 import { useAdmin } from '../hooks/useAdmin'
 import { useTipsterSettings } from '../hooks/useTipsterSettings'
 import PlayCard from '../components/PlayCard'
 import Layout from '../components/Layout'
 
-function Record({ plays }) {
+function Record({ plays, tipsterName }) {
   const settled = plays.filter((p) => p.result !== 'pending')
   const wins = settled.filter((p) => p.result === 'win').length
   const losses = settled.filter((p) => p.result === 'loss').length
   const pushes = settled.filter((p) => p.result === 'push').length
   const winRate = settled.length > 0 ? ((wins / settled.length) * 100).toFixed(1) : '—'
+  const displayName = tipsterName || 'Tipster'
+  const initial = displayName.charAt(0).toUpperCase()
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 font-bold">T</div>
+        <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 font-bold">{initial}</div>
         <div>
-          <p className="font-bold">Tony B. — Tipster</p>
+          <p className="font-bold">{displayName}</p>
           <p className="text-xs text-gray-500">Verified track record · all-time</p>
         </div>
       </div>
@@ -51,7 +53,7 @@ export default function Plays() {
           <p className="text-gray-500 text-sm mt-1">{today}</p>
         </div>
 
-        {settings.statsVisible && <Record plays={plays} />}
+        {settings.statsVisible && <Record plays={plays} tipsterName={settings.tipsterName} />}
 
         <section>
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Free Plays</h2>
@@ -110,13 +112,14 @@ export default function Plays() {
           )}
         </section>
 
-        <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+        <button onClick={() => navigate('/academy')} className="w-full bg-gray-900 border border-gray-800 hover:border-gray-700 rounded-2xl p-6 text-left transition-colors group">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="font-semibold flex items-center gap-2"><BookOpen className="w-4 h-4 text-gray-400" /> Betting Academy</h2>
-            <span className="text-xs text-gray-600 bg-gray-800 px-2 py-1 rounded">Coming Soon</span>
+            <h2 className="font-semibold flex items-center gap-2"><BookOpen className="w-4 h-4 text-green-400" /> Betting Academy</h2>
+            <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors" />
           </div>
-          <p className="text-sm text-gray-500">Learn bankroll management, unit sizing, line shopping, and how to read sharp money movement.</p>
-        </section>
+          <p className="text-sm text-gray-500">8 lessons covering bankroll management, unit sizing, line shopping, and how to read sharp money movement.</p>
+          <p className="text-xs text-green-400 mt-3 font-medium">Start learning →</p>
+        </button>
       </div>
     </Layout>
   )
