@@ -101,11 +101,31 @@ Two things are enforced server-side in `firestore.rules`, and both must stay tha
 2. **The VIP paywall is a read rule, not a UI state.** A non-VIP is not permitted to
    read `tier: 'vip'` documents at all.
 
+Because only an admin can write `isAdmin`, the **first** admin has to be set from
+the Firebase console by hand — flip `isAdmin` to `true` on your own `users/{uid}`
+document. There is deliberately no in-app path to it.
+
 Firestore rules filter the *result set*, not individual documents: a query that
 could match a document the caller can't read is rejected outright. So a non-VIP
 client must query `where('tier', '==', 'free')` explicitly — which is why
 `PlaysContext` runs two separate listeners and only attaches the VIP one when the
 user is entitled to it.
+
+### One-time backfill before deploying
+
+Plays are now fetched by two `where('tier', '==', …)` queries. A document with no
+`tier` field matches **neither**, so it silently disappears for every user, admin
+included. Publishing has always set `tier`, but check for stragglers first — in the
+Firebase console, or from a browser console on the app while signed in as admin:
+
+```js
+// list plays missing a tier
+const { getDocs, collection } = await import('firebase/firestore')
+const snap = await getDocs(collection(db, 'plays'))
+snap.docs.filter((d) => !d.data().tier).map((d) => d.id)
+```
+
+Backfill any that turn up with `tier: 'free'` before deploying the rules.
 
 ### Deploying and testing rules
 

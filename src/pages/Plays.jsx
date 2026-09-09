@@ -57,6 +57,8 @@ export default function Plays() {
   // vipLocked already accounts for admins, who aren't necessarily VIPs but
   // should still see their own picks unblurred
   const canSeeVIP = !vipLocked
+  // Count only — the picks themselves are no longer sent to non-VIP clients
+  const vipPending = settings.record?.vipPending ?? 0
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
@@ -101,7 +103,11 @@ export default function Plays() {
               <div className="bg-gray-900 border border-purple-500/20 rounded-2xl p-8 text-center space-y-4">
                 <Lock className="w-8 h-8 text-purple-400 mx-auto" />
                 <div>
-                  <p className="font-semibold text-gray-200">VIP Members Only</p>
+                  <p className="font-semibold text-gray-200">
+                    {vipPending > 0
+                      ? `${vipPending} VIP ${vipPending === 1 ? 'play' : 'plays'} waiting`
+                      : 'VIP Members Only'}
+                  </p>
                   <p className="text-sm text-gray-500 max-w-xs mx-auto mt-1">
                     5 daily plays · 2-unit Best Bet · Statistically-backed Lottery Parlay
                   </p>

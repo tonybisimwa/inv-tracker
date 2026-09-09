@@ -11,12 +11,17 @@ const settingsRef = () => doc(db, 'settings', 'tipster')
 // The tipster's public record, derived from every play. Kept in the
 // admin-written settings doc so non-VIP users can see an honest all-time
 // record without being able to read the VIP picks it's computed from.
+//
+// vipPending is a count, not content: locking the picks server-side left the
+// paywall with nothing to show, so a non-VIP couldn't tell whether five plays
+// were waiting or none. A bare number restores that without leaking a pick.
 function tallyRecord(plays) {
   const settled = plays.filter((p) => p.result && p.result !== 'pending')
   return {
     wins:   settled.filter((p) => p.result === 'win').length,
     losses: settled.filter((p) => p.result === 'loss').length,
     pushes: settled.filter((p) => p.result === 'push').length,
+    vipPending: plays.filter((p) => p.tier === 'vip' && (!p.result || p.result === 'pending')).length,
     updatedAt: new Date().toISOString(),
   }
 }
@@ -63,12 +68,17 @@ export function PlaysProvider({ children }) {
   }
 
   async function addPlay(data) {
-    await addDoc(playsCol(), { ...data, createdAt: new Date().toISOString(), result: 'pending' })
+    const play = { ...data, createdAt: new Date().toISOString(), result: 'pending' }
+    await addDoc(playsCol(), play)
+    // Publishing changes the pending count the paywall advertises
+    await syncRecord([...plays, play])
   }
 
   async function updatePlay(id, data) {
     await updateDoc(doc(db, 'plays', id), data)
-    if ('result' in data) {
+    // A result settles a play, so both the record and the pending count move.
+    // A tier change moves the count too.
+    if ('result' in data || 'tier' in data) {
       await syncRecord(plays.map((p) => (p.id === id ? { ...p, ...data } : p)))
     }
   }

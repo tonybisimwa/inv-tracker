@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { signInWithPopup } from 'firebase/auth'
 import { TrendingUp, Trophy, BarChart2, Clock } from 'lucide-react'
 import { auth, googleProvider } from '../firebase/config'
+import { authErrorMessage } from '../utils/authErrors'
 
 const features = [
   { Icon: TrendingUp, title: 'Daily P&L Tracking', desc: 'Log every bet and see your profit/loss by day, week, month, or all time.' },
@@ -12,10 +14,24 @@ const features = [
 
 export default function Welcome() {
   const navigate = useNavigate()
+  const [busy, setBusy]   = useState(false)
+  const [error, setError] = useState('')
 
+  // This is the primary call to action, so a failure has to be visible. A blocked
+  // popup used to leave the button doing nothing at all.
   async function handleGoogle() {
-    try { await signInWithPopup(auth, googleProvider) }
-    catch (e) { console.error(e) }
+    setError('')
+    setBusy(true)
+    try {
+      await signInWithPopup(auth, googleProvider)
+    } catch (e) {
+      // Closing the popup yourself isn't an error worth reporting
+      if (e?.code !== 'auth/popup-closed-by-user' && e?.code !== 'auth/cancelled-popup-request') {
+        setError(authErrorMessage(e))
+      }
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -48,7 +64,8 @@ export default function Welcome() {
         <div className="flex flex-col sm:flex-row gap-3 justify-center mb-12">
           <button
             onClick={handleGoogle}
-            className="flex items-center gap-3 bg-white text-gray-900 font-semibold px-6 py-3 rounded-xl hover:bg-gray-100 transition-colors"
+            disabled={busy}
+            className="flex items-center justify-center gap-3 bg-white text-gray-900 font-semibold px-6 py-3 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-60"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -56,7 +73,7 @@ export default function Welcome() {
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
-            Get Started with Google
+            {busy ? 'Opening Google…' : 'Get Started with Google'}
           </button>
           <button
             onClick={() => navigate('/login')}
@@ -64,6 +81,14 @@ export default function Welcome() {
           >
             Sign in with Email
           </button>
+        </div>
+
+        <div aria-live="polite" className="min-h-6 -mt-8 mb-8">
+          {error && (
+            <p className="text-sm text-red-400 max-w-md mx-auto" role="alert">
+              {error} You can also <button onClick={() => navigate('/login')} className="underline hover:text-red-300">sign in with email</button>.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left">
