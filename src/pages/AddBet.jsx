@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBets } from '../hooks/useBets'
+import { useToast } from '../contexts/ToastContext'
 import BetForm from '../components/BetForm'
 import SlipScanner from '../components/SlipScanner'
 import ScannedBetsReview from '../components/ScannedBetsReview'
@@ -11,6 +12,7 @@ let nextId = 0
 export default function AddBet() {
   const { addBet, addBets } = useBets()
   const navigate = useNavigate()
+  const toast = useToast()
   const [scanned, setScanned] = useState([]) // { _id, ...betData } awaiting review
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -43,7 +45,10 @@ export default function AddBet() {
     setError('')
     setSaving(true)
     try {
+      const count = scanned.length
       await addBets(scanned.map(({ _id, ...bet }) => bet))
+      // Toasts live above the router, so the confirmation survives the redirect
+      toast.success(`${count} ${count === 1 ? 'bet' : 'bets'} saved.`)
       navigate('/')
     } catch {
       setError('Failed to save bets. Please try again.')
@@ -56,6 +61,7 @@ export default function AddBet() {
     setSaving(true)
     try {
       await addBet(data)
+      toast.success('Bet saved.')
       navigate('/')
     } catch {
       setError('Failed to save bet. Please try again.')

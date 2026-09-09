@@ -225,7 +225,7 @@ export default function VIPCheckout() {
               value={txnId}
               onChange={(e) => setTxnId(e.target.value)}
               placeholder={method === 'stripe' ? 'you@example.com' : 'e.g. 8F3K2A or last 4 digits'}
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors"
+              className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-600 focus:border-purple-500 transition-colors"
               required
             />
           </div>

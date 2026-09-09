@@ -6,13 +6,20 @@ import { generateUsername } from '../utils/generateUsername'
 
 const AuthContext = createContext(null)
 
+const EMPTY_PROFILE = {
+  isAdmin: false,
+  isVIP: false,
+  vipPlan: null,
+  vipUntil: null,
+  username: '',
+  bankroll: null,     // starting bankroll in dollars; null = not set up yet
+  unitSize: null,     // dollars per unit; null = not set up yet
+  lessonsRead: [],    // Academy lesson ids marked done
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser]           = useState(undefined) // undefined = not yet resolved
-  const [isAdmin, setIsAdmin]     = useState(false)
-  const [isVIP, setIsVIP]         = useState(false)
-  const [vipPlan, setVipPlan]     = useState(null)
-  const [vipUntil, setVipUntil]   = useState(null)
-  const [username, setUsername]   = useState('')
+  const [user, setUser]         = useState(undefined) // undefined = not yet resolved
+  const [profile, setProfile]   = useState(EMPTY_PROFILE)
   const [profileReady, setProfileReady] = useState(false)
 
   // Resolve auth state once
@@ -21,8 +28,8 @@ export function AuthProvider({ children }) {
     return onAuthStateChanged(auth, (u) => {
       setUser(u ?? null)
       if (!u) {
-        setIsAdmin(false); setIsVIP(false)
-        setUsername(''); setProfileReady(true)
+        setProfile(EMPTY_PROFILE)
+        setProfileReady(true)
       }
     })
   }, [])
@@ -33,27 +40,37 @@ export function AuthProvider({ children }) {
     const ref = doc(db, 'users', user.uid)
     return onSnapshot(ref, async (snap) => {
       if (!snap.exists()) {
-        const anonName = generateUsername()
+        const username = generateUsername()
         await setDoc(ref, {
           email: user.email,
           displayName: user.displayName,
-          username: anonName,
+          username,
           createdAt: new Date().toISOString(),
           isAdmin: false,
           isVIP: false,
         })
-        setUsername(anonName); setIsAdmin(false); setIsVIP(false)
+        setProfile({ ...EMPTY_PROFILE, username })
       } else {
         const d = snap.data()
-        setIsAdmin(d.isAdmin === true)
-        setIsVIP(d.isVIP === true)
-        setVipPlan(d.vipPlan || null)
-        setVipUntil(d.vipUntil || null)
-        setUsername(d.username || '')
+        setProfile({
+          isAdmin:     d.isAdmin === true,
+          isVIP:       d.isVIP === true,
+          vipPlan:     d.vipPlan ?? null,
+          vipUntil:    d.vipUntil ?? null,
+          username:    d.username ?? '',
+          bankroll:    typeof d.bankroll === 'number' ? d.bankroll : null,
+          unitSize:    typeof d.unitSize === 'number' ? d.unitSize : null,
+          lessonsRead: Array.isArray(d.lessonsRead) ? d.lessonsRead : [],
+        })
       }
       setProfileReady(true)
     })
   }, [user])
+
+  async function updateProfile(patch) {
+    if (!user) return
+    await setDoc(doc(db, 'users', user.uid), patch, { merge: true })
+  }
 
   // Show spinner until auth + profile are both resolved
   const loading = user === undefined || (user !== null && !profileReady)
@@ -64,8 +81,13 @@ export function AuthProvider({ children }) {
     </div>
   )
 
+  // A lapsed subscription should stop unlocking VIP content. The stored flag is
+  // only cleared when an admin gets round to it, so honour the date here too.
+  const vipExpired = !!profile.vipUntil && new Date(profile.vipUntil) < new Date()
+  const isVIP = profile.isVIP && !vipExpired
+
   return (
-    <AuthContext.Provider value={{ user, isAdmin, isVIP, vipPlan, vipUntil, username }}>
+    <AuthContext.Provider value={{ user, ...profile, isVIP, vipExpired, updateProfile }}>
       {children}
     </AuthContext.Provider>
   )

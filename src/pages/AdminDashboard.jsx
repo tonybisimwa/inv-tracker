@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { usePlays } from '../hooks/usePlays'
 import { useTipsterSettings } from '../hooks/useTipsterSettings'
+import { useToast } from '../contexts/ToastContext'
 import Layout from '../components/Layout'
 import { Link } from 'react-router-dom'
 import { Eye, EyeOff, Pencil, Check, X } from 'lucide-react'
@@ -17,8 +18,10 @@ function StatCard({ label, value, color = 'text-white' }) {
 export default function AdminDashboard() {
   const { plays, updatePlay, deletePlay } = usePlays()
   const { settings, updateSettings } = useTipsterSettings()
+  const toast = useToast()
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(null)
 
   function startEditName() {
     setNameInput(settings.tipsterName || '')
@@ -27,8 +30,32 @@ export default function AdminDashboard() {
 
   async function saveName() {
     const trimmed = nameInput.trim()
-    if (trimmed) await updateSettings({ tipsterName: trimmed })
+    if (trimmed) {
+      try {
+        await updateSettings({ tipsterName: trimmed })
+        toast.success('Tipster name updated.')
+      } catch { toast.error('Could not save the name.') }
+    }
     setEditingName(false)
+  }
+
+  async function toggleStats() {
+    const next = !settings.statsVisible
+    try {
+      await updateSettings({ statsVisible: next })
+      toast.success(next ? 'Stats card is now public.' : 'Stats card is now hidden.')
+    } catch { toast.error('Could not change stats visibility.') }
+  }
+
+  async function removePlay(id) {
+    try {
+      await deletePlay(id)
+      toast.success('Play deleted.')
+    } catch {
+      toast.error('Could not delete that play.')
+    } finally {
+      setConfirmDelete(null)
+    }
   }
 
   function cancelEditName() {
@@ -43,8 +70,13 @@ export default function AdminDashboard() {
 
   const pendingPlays = plays.filter((p) => p.result === 'pending')
 
-  function handleResult(id, result) {
-    updatePlay(id, { result })
+  async function handleResult(id, result) {
+    try {
+      await updatePlay(id, { result })
+      toast.success(`Play graded as ${result}.`)
+    } catch {
+      toast.error('Could not save that result.')
+    }
   }
 
   return (
@@ -57,7 +89,7 @@ export default function AdminDashboard() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={() => updateSettings({ statsVisible: !settings.statsVisible })}
+              onClick={toggleStats}
               className={`flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${
                 settings.statsVisible
                   ? 'border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20'
@@ -88,7 +120,7 @@ export default function AdminDashboard() {
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') cancelEditName() }}
-                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-green-500"
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100 focus:border-green-500"
                   placeholder="e.g. Tony B. — Tipster"
                 />
                 <button onClick={saveName} className="text-green-400 hover:text-green-300 transition-colors" title="Save"><Check className="w-4 h-4" /></button>
@@ -163,12 +195,26 @@ export default function AdminDashboard() {
                       </span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => { if (window.confirm('Delete this play?')) deletePlay(play.id) }}
-                    className="text-gray-600 hover:text-red-400 text-xs transition-colors flex-shrink-0"
-                  >
-                    Delete
-                  </button>
+                  {confirmDelete === play.id ? (
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button onClick={() => removePlay(play.id)}
+                        className="text-xs font-semibold bg-red-500 hover:bg-red-400 text-gray-950 px-2.5 py-1 rounded-lg transition-colors">
+                        Confirm
+                      </button>
+                      <button onClick={() => setConfirmDelete(null)}
+                        className="text-xs text-gray-500 hover:text-gray-200 px-1 transition-colors">
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(play.id)}
+                      aria-label={`Delete ${play.event}`}
+                      className="text-gray-600 hover:text-red-400 text-xs transition-colors flex-shrink-0"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

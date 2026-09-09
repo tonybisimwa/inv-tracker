@@ -40,12 +40,12 @@ export default function BetForm({ initial, onSubmit, onCancel, submitLabel, disa
         <div>
           <label className="block text-xs text-gray-400 mb-1">Date</label>
           <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" required />
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-green-500" required />
         </div>
         <div>
           <label className="block text-xs text-gray-400 mb-1">Sport</label>
           <select value={form.sport} onChange={(e) => set('sport', e.target.value)}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500">
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-green-500">
             {SPORTS.map((s) => <option key={s}>{s}</option>)}
           </select>
         </div>
@@ -54,26 +54,26 @@ export default function BetForm({ initial, onSubmit, onCancel, submitLabel, disa
       <div>
         <label className="block text-xs text-gray-400 mb-1">Event / Game</label>
         <input value={form.event} onChange={(e) => set('event', e.target.value)} placeholder="e.g. Chiefs vs Raiders"
-          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" />
+          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-green-500" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="block text-xs text-gray-400 mb-1">Bet Type</label>
           <select value={form.betType} onChange={(e) => set('betType', e.target.value)}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500">
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-green-500">
             {BET_TYPES.map((t) => <option key={t}>{t}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs text-gray-400 mb-1">Odds (American)</label>
           <input type="number" value={form.odds} onChange={(e) => set('odds', e.target.value)} placeholder="-110"
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" />
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-green-500" />
         </div>
         <div>
           <label className="block text-xs text-gray-400 mb-1">Stake ($)</label>
           <input type="number" step="0.01" min="0.01" value={form.stake} onChange={(e) => set('stake', e.target.value)} placeholder="100"
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" />
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-green-500" />
         </div>
       </div>
 
@@ -106,7 +106,7 @@ export default function BetForm({ initial, onSubmit, onCancel, submitLabel, disa
       <div>
         <label className="block text-xs text-gray-400 mb-1">Notes</label>
         <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={2} placeholder="Optional notes..."
-          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500 resize-none" />
+          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-green-500 resize-none" />
       </div>
 
       {errors.length > 0 && (

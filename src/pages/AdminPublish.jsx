@@ -60,13 +60,13 @@ export default function AdminPublish() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-gray-400 mb-1.5">Sport</label>
-              <select value={form.sport} onChange={(e) => set('sport', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500">
+              <select value={form.sport} onChange={(e) => set('sport', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:border-green-500">
                 {SPORTS.map((s) => <option key={s}>{s}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs text-gray-400 mb-1.5">Tier</label>
-              <select value={form.tier} onChange={(e) => set('tier', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500">
+              <select value={form.tier} onChange={(e) => set('tier', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:border-green-500">
                 <option value="free">Free</option>
                 <option value="vip">VIP</option>
               </select>
@@ -75,26 +75,26 @@ export default function AdminPublish() {
 
           <div>
             <label className="block text-xs text-gray-400 mb-1.5">Event (teams / matchup)</label>
-            <input value={form.event} onChange={(e) => set('event', e.target.value)} placeholder="e.g. Chiefs vs Raiders" className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500" />
+            <input value={form.event} onChange={(e) => set('event', e.target.value)} placeholder="e.g. Chiefs vs Raiders" className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:border-green-500" />
           </div>
 
           <div>
             <label className="block text-xs text-gray-400 mb-1.5">Pick / Line</label>
-            <input value={form.line} onChange={(e) => set('line', e.target.value)} placeholder="e.g. Chiefs -3.5 or Over 47.5" className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500" />
+            <input value={form.line} onChange={(e) => set('line', e.target.value)} placeholder="e.g. Chiefs -3.5 or Over 47.5" className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:border-green-500" />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-xs text-gray-400 mb-1.5">Odds (American)</label>
-              <input type="number" value={form.odds} onChange={(e) => set('odds', e.target.value)} placeholder="-110" className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500" />
+              <input type="number" value={form.odds} onChange={(e) => set('odds', e.target.value)} placeholder="-110" className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:border-green-500" />
             </div>
             <div>
               <label className="block text-xs text-gray-400 mb-1.5">Units</label>
-              <input type="number" min="0.5" max="5" step="0.5" value={form.units} onChange={(e) => set('units', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500" />
+              <input type="number" min="0.5" max="5" step="0.5" value={form.units} onChange={(e) => set('units', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:border-green-500" />
             </div>
             <div>
               <label className="block text-xs text-gray-400 mb-1.5">Confidence (1-5)</label>
-              <input type="number" min="1" max="5" value={form.confidence} onChange={(e) => set('confidence', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500" />
+              <input type="number" min="1" max="5" value={form.confidence} onChange={(e) => set('confidence', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:border-green-500" />
             </div>
           </div>
 
@@ -111,12 +111,12 @@ export default function AdminPublish() {
 
           <div>
             <label className="block text-xs text-gray-400 mb-1.5">Game Date & Time</label>
-            <input type="datetime-local" value={form.gameTime} onChange={(e) => set('gameTime', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500" />
+            <input type="datetime-local" value={form.gameTime} onChange={(e) => set('gameTime', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:border-green-500" />
           </div>
 
           <div>
             <label className="block text-xs text-gray-400 mb-1.5">Reasoning</label>
-            <textarea value={form.reasoning} onChange={(e) => set('reasoning', e.target.value)} rows={3} placeholder="Why this play? Key stats, matchup edges, line movement..." className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 resize-none" />
+            <textarea value={form.reasoning} onChange={(e) => set('reasoning', e.target.value)} rows={3} placeholder="Why this play? Key stats, matchup edges, line movement..." className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:border-green-500 resize-none" />
           </div>
 
           {error && <p className="text-red-400 text-sm">{error}</p>}

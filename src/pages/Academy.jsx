@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ChevronDown, ChevronUp, TrendingUp, Calculator, Shield, Zap } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Check, ChevronDown, ChevronUp, TrendingUp, Calculator, Shield, Wallet, Zap } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import Layout from '../components/Layout'
 
 const CATEGORIES = {
@@ -147,39 +149,47 @@ const LESSONS = [
   },
 ]
 
-function LessonCard({ lesson }) {
+function LessonCard({ lesson, read, onToggleRead }) {
   const [open, setOpen] = useState(false)
   const cat  = CATEGORIES[lesson.category]
   const diff = DIFFICULTY[lesson.difficulty]
+  const panelId = `lesson-${lesson.id}-body`
 
   return (
-    <div className={`bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden transition-all`}>
+    <div className={`bg-gray-900 border rounded-2xl overflow-hidden transition-colors ${read ? 'border-gray-800/60' : 'border-gray-800'}`}>
       {/* Colored top bar */}
-      <div className={`h-0.5 ${cat.bar}`} />
+      <div className={`h-0.5 ${cat.bar} ${read ? 'opacity-40' : ''}`} />
 
       <button
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-controls={panelId}
         className="w-full text-left px-5 py-4 flex items-start justify-between gap-4"
       >
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1.5">
             <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${cat.bg} ${cat.color}`}>
-              <cat.Icon className="w-3 h-3" />{cat.label}
+              <cat.Icon className="w-3 h-3" aria-hidden="true" />{cat.label}
             </span>
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${diff.color}`}>
               {diff.label}
             </span>
+            {read && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500">
+                <Check className="w-3 h-3" aria-hidden="true" />Read
+              </span>
+            )}
           </div>
-          <h3 className="font-bold text-gray-100 text-base">{lesson.title}</h3>
+          <h3 className={`font-bold text-base ${read ? 'text-gray-400' : 'text-gray-100'}`}>{lesson.title}</h3>
           <p className="text-sm text-gray-500 mt-1 leading-relaxed">{lesson.summary}</p>
         </div>
         <div className="flex-shrink-0 mt-1 text-gray-500">
-          {open ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          {open ? <ChevronUp className="w-5 h-5" aria-hidden="true" /> : <ChevronDown className="w-5 h-5" aria-hidden="true" />}
         </div>
       </button>
 
       {open && (
-        <div className="px-5 pb-5 space-y-4 border-t border-gray-800 pt-4">
+        <div id={panelId} className="px-5 pb-5 space-y-4 border-t border-gray-800 pt-4">
           {lesson.content.map((para, i) => (
             <p key={i} className="text-sm text-gray-300 leading-relaxed">{para}</p>
           ))}
@@ -188,31 +198,68 @@ function LessonCard({ lesson }) {
             <ul className="space-y-1">
               {lesson.takeaways.map((t, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
-                  <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${cat.bar}`} />
+                  <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${cat.bar}`} aria-hidden="true" />
                   {t}
                 </li>
               ))}
             </ul>
           </div>
+
+          <button
+            onClick={() => onToggleRead(lesson.id)}
+            className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+              read
+                ? 'border border-gray-700 text-gray-400 hover:text-gray-200'
+                : 'bg-green-500 hover:bg-green-400 text-gray-950'
+            }`}
+          >
+            <Check className="w-4 h-4" aria-hidden="true" />
+            {read ? 'Mark as unread' : 'Mark as read'}
+          </button>
         </div>
       )}
     </div>
   )
 }
 
+const FILTERS = [
+  { id: 'all',      label: 'All' },
+  { id: 'unread',   label: 'Unread' },
+  { id: 'bankroll', label: 'Bankroll' },
+  { id: 'math',     label: 'Math' },
+  { id: 'strategy', label: 'Strategy' },
+  { id: 'mindset',  label: 'Mindset' },
+]
+
 export default function Academy() {
   const [filter, setFilter] = useState('all')
-  const navigate = useNavigate()
+  const { bankroll, lessonsRead, updateProfile } = useAuth()
+  const toast = useToast()
 
-  const filters = [
-    { id: 'all',      label: 'All' },
-    { id: 'bankroll', label: 'Bankroll' },
-    { id: 'math',     label: 'Math' },
-    { id: 'strategy', label: 'Strategy' },
-    { id: 'mindset',  label: 'Mindset' },
-  ]
+  const read = new Set(lessonsRead ?? [])
+  const doneCount = LESSONS.filter((l) => read.has(l.id)).length
+  const pct = Math.round((doneCount / LESSONS.length) * 100)
+  const nextUp = LESSONS.find((l) => !read.has(l.id))
 
-  const visible = filter === 'all' ? LESSONS : LESSONS.filter((l) => l.category === filter)
+  async function toggleRead(id) {
+    const next = read.has(id)
+      ? (lessonsRead ?? []).filter((x) => x !== id)
+      : [...(lessonsRead ?? []), id]
+    try {
+      await updateProfile({ lessonsRead: next })
+      if (!read.has(id)) {
+        toast.success(next.length === LESSONS.length ? 'Academy complete — nice work.' : 'Lesson marked as read.')
+      }
+    } catch {
+      toast.error('Could not save your progress.')
+    }
+  }
+
+  const visible =
+    filter === 'all'    ? LESSONS :
+    filter === 'unread' ? LESSONS.filter((l) => !read.has(l.id)) :
+                          LESSONS.filter((l) => l.category === filter)
+
   const beginnerCount = LESSONS.filter((l) => l.difficulty === 'beginner').length
 
   return (
@@ -221,7 +268,7 @@ export default function Academy() {
 
         {/* Hero */}
         <div className="relative bg-gray-900 border border-gray-800 rounded-2xl p-6 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 via-transparent to-blue-500/5" />
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 via-transparent to-blue-500/5" aria-hidden="true" />
           <div className="relative">
             <p className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-2">Betting Academy</p>
             <h1 className="text-2xl font-bold text-gray-100 mb-2">Bet smarter, not harder.</h1>
@@ -229,20 +276,52 @@ export default function Academy() {
               {LESSONS.length} lessons covering bankroll management, odds math, and advanced strategy.
               Start with the {beginnerCount} beginner lessons and work your way up.
             </p>
-            <div className="flex gap-4 mt-4 text-xs text-gray-500">
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500" />{LESSONS.filter(l=>l.difficulty==='beginner').length} Beginner</span>
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-500" />{LESSONS.filter(l=>l.difficulty==='intermediate').length} Intermediate</span>
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" />{LESSONS.filter(l=>l.difficulty==='pro').length} Pro</span>
+
+            {/* Progress — reading eight lessons with no sense of where you are
+                is why people bounce off content like this. */}
+            <div className="mt-5">
+              <div className="flex items-baseline justify-between mb-2">
+                <p className="text-xs font-medium text-gray-400">
+                  {doneCount} of {LESSONS.length} lessons read
+                </p>
+                <p className="text-xs font-bold text-green-400 tabular">{pct}%</p>
+              </div>
+              <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden"
+                role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
+                aria-label="Academy progress">
+                <div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+              </div>
+              {nextUp && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Next up: <span className="text-gray-300">{nextUp.title}</span>
+                </p>
+              )}
+            </div>
+
+            {/* Make the bankroll lesson actionable instead of theoretical */}
+            {!bankroll && (
+              <Link to="/settings"
+                className="inline-flex items-center gap-2 mt-5 text-xs font-semibold bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 px-3 py-2 rounded-lg transition-colors">
+                <Wallet className="w-3.5 h-3.5" aria-hidden="true" />
+                Set your bankroll to put lesson 1 into practice
+              </Link>
+            )}
+
+            <div className="flex gap-4 mt-5 text-xs text-gray-500">
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500" aria-hidden="true" />{LESSONS.filter(l=>l.difficulty==='beginner').length} Beginner</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-500" aria-hidden="true" />{LESSONS.filter(l=>l.difficulty==='intermediate').length} Intermediate</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" aria-hidden="true" />{LESSONS.filter(l=>l.difficulty==='pro').length} Pro</span>
             </div>
           </div>
         </div>
 
         {/* Category filter */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-          {filters.map((f) => (
+          {FILTERS.map((f) => (
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
+              aria-pressed={filter === f.id}
               className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 filter === f.id
                   ? 'bg-green-500 text-gray-950'
@@ -250,13 +329,24 @@ export default function Academy() {
               }`}
             >
               {f.label}
+              {f.id === 'unread' && doneCount < LESSONS.length && (
+                <span className="ml-1.5 tabular">{LESSONS.length - doneCount}</span>
+              )}
             </button>
           ))}
         </div>
 
         {/* Lessons */}
         <div className="space-y-3">
-          {visible.map((lesson) => <LessonCard key={lesson.id} lesson={lesson} />)}
+          {visible.map((lesson) => (
+            <LessonCard key={lesson.id} lesson={lesson} read={read.has(lesson.id)} onToggleRead={toggleRead} />
+          ))}
+          {visible.length === 0 && (
+            <div className="text-center py-12">
+              <Check className="w-8 h-8 text-green-400 mx-auto mb-3" aria-hidden="true" />
+              <p className="text-sm text-gray-400">You&rsquo;ve read every lesson. Go put it to work.</p>
+            </div>
+          )}
         </div>
 
         <p className="text-center text-xs text-gray-600 pb-4">More lessons coming soon.</p>
