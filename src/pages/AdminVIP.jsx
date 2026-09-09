@@ -2,17 +2,21 @@ import { useState, useEffect } from 'react'
 import { collection, onSnapshot, doc, updateDoc, query, orderBy } from 'firebase/firestore'
 import { Star, CheckCircle, XCircle, ShieldOff } from 'lucide-react'
 import { db } from '../firebase/config'
+import { useToast } from '../contexts/ToastContext'
 import Layout from '../components/Layout'
 
 const PLAN_DAYS = { weekly: 7, monthly: 30, yearly: 365 }
 
-function futureDate(days) {
+function expiry(days) {
   const d = new Date()
   d.setDate(d.getDate() + days)
-  return d.toISOString()
+  // Security rules can't parse an ISO string, so store an epoch-millis mirror
+  // alongside it. The rules compare against vipUntilMs; the UI shows vipUntil.
+  return { vipUntil: d.toISOString(), vipUntilMs: d.getTime() }
 }
 
 export default function AdminVIP() {
+  const toast = useToast()
   const [requests, setRequests] = useState([])
   const [vipUsers, setVipUsers]  = useState([])
   const [loading, setLoading]    = useState(true)
@@ -32,19 +36,33 @@ export default function AdminVIP() {
   }, [])
 
   async function approve(req) {
-    const vipUntil = futureDate(PLAN_DAYS[req.plan] || 30)
-    await Promise.all([
-      updateDoc(doc(db, 'vipRequests', req.id), { status: 'approved' }),
-      updateDoc(doc(db, 'users', req.uid), { isVIP: true, vipPlan: req.plan, vipUntil }),
-    ])
+    try {
+      await Promise.all([
+        updateDoc(doc(db, 'vipRequests', req.id), { status: 'approved' }),
+        updateDoc(doc(db, 'users', req.uid), { isVIP: true, vipPlan: req.plan, ...expiry(PLAN_DAYS[req.plan] || 30) }),
+      ])
+      toast.success(`VIP approved — ${req.plan} plan.`)
+    } catch {
+      toast.error('Could not approve that request.')
+    }
   }
 
   async function reject(req) {
-    await updateDoc(doc(db, 'vipRequests', req.id), { status: 'rejected' })
+    try {
+      await updateDoc(doc(db, 'vipRequests', req.id), { status: 'rejected' })
+      toast.success('Request rejected.')
+    } catch {
+      toast.error('Could not reject that request.')
+    }
   }
 
   async function revoke(uid) {
-    await updateDoc(doc(db, 'users', uid), { isVIP: false, vipPlan: null, vipUntil: null })
+    try {
+      await updateDoc(doc(db, 'users', uid), { isVIP: false, vipPlan: null, vipUntil: null, vipUntilMs: null })
+      toast.success('VIP access revoked.')
+    } catch {
+      toast.error('Could not revoke VIP access.')
+    }
   }
 
   const pending  = requests.filter((r) => r.status === 'pending')

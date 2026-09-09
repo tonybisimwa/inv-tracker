@@ -6,12 +6,25 @@ import { useTipsterSettings } from '../hooks/useTipsterSettings'
 import PlayCard from '../components/PlayCard'
 import Layout from '../components/Layout'
 
-function Record({ plays, tipsterName }) {
-  const settled = plays.filter((p) => p.result !== 'pending')
-  const wins = settled.filter((p) => p.result === 'win').length
-  const losses = settled.filter((p) => p.result === 'loss').length
-  const pushes = settled.filter((p) => p.result === 'push').length
-  const winRate = settled.length > 0 ? ((wins / settled.length) * 100).toFixed(1) : '—'
+/**
+ * All-time record. Read from the aggregate in the settings doc rather than
+ * counted from the plays on screen — a non-VIP client no longer receives VIP
+ * plays, so counting locally would show them a smaller, misleading record.
+ * Falls back to counting visible plays if the aggregate hasn't been written yet.
+ */
+function Record({ record, plays, tipsterName }) {
+  const counted = record ?? (() => {
+    const settled = plays.filter((p) => p.result && p.result !== 'pending')
+    return {
+      wins:   settled.filter((p) => p.result === 'win').length,
+      losses: settled.filter((p) => p.result === 'loss').length,
+      pushes: settled.filter((p) => p.result === 'push').length,
+    }
+  })()
+
+  const { wins = 0, losses = 0, pushes = 0 } = counted
+  const total = wins + losses + pushes
+  const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : '—'
   const displayName = tipsterName || 'Tipster'
   const initial = displayName.charAt(0).toUpperCase()
   return (
@@ -34,15 +47,16 @@ function Record({ plays, tipsterName }) {
 }
 
 export default function Plays() {
-  const { plays, loading } = usePlays()
+  const { plays, freePlays, vipPlays, loading, vipLocked } = usePlays()
   const { isVIP } = useAdmin()
   const { settings } = useTipsterSettings()
   const navigate = useNavigate()
 
   if (loading) return <Layout><div className="flex items-center justify-center h-64 text-gray-500">Loading plays...</div></Layout>
 
-  const freePlays = plays.filter((p) => p.tier === 'free')
-  const vipPlays = plays.filter((p) => p.tier === 'vip')
+  // vipLocked already accounts for admins, who aren't necessarily VIPs but
+  // should still see their own picks unblurred
+  const canSeeVIP = !vipLocked
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
@@ -53,7 +67,7 @@ export default function Plays() {
           <p className="text-gray-500 text-sm mt-1">{today}</p>
         </div>
 
-        {settings.statsVisible && <Record plays={plays} tipsterName={settings.tipsterName} />}
+        {settings.statsVisible && <Record record={settings.record} plays={plays} tipsterName={settings.tipsterName} />}
 
         <section>
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Free Plays</h2>
@@ -79,7 +93,7 @@ export default function Plays() {
           </div>
 
           {vipPlays.length === 0 ? (
-            isVIP ? (
+            canSeeVIP ? (
               <div className="bg-gray-900 border border-purple-500/20 rounded-2xl p-8 text-center text-gray-600">
                 No VIP plays posted yet. Check back soon.
               </div>
@@ -107,7 +121,7 @@ export default function Plays() {
             )
           ) : (
             <div className="space-y-4">
-              {vipPlays.map((p) => <PlayCard key={p.id} play={p} locked={!isVIP} />)}
+              {vipPlays.map((p) => <PlayCard key={p.id} play={p} locked={!canSeeVIP} />)}
             </div>
           )}
         </section>

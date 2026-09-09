@@ -93,7 +93,7 @@ export default function VIPCheckout() {
         createdAt: new Date().toISOString(),
       })
       setSubmitted(true)
-    } catch (err) {
+    } catch {
       setError('Failed to submit. Please try again.')
     }
     setSubmitting(false)
