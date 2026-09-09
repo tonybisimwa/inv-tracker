@@ -5,6 +5,7 @@ import { Star, Home, TrendingUp, PlusCircle, Clock, GraduationCap, Settings, X }
 import { auth } from '../firebase/config'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdmin } from '../hooks/useAdmin'
+import Logo from './Logo'
 
 const TOP_NAV = [
   { to: '/',        label: 'Dashboard' },
@@ -63,7 +64,7 @@ export default function Layout({ children }) {
       {/* ── Desktop header ── */}
       <header className="hidden md:flex sticky top-0 z-30 bg-gray-950/90 backdrop-blur border-b border-gray-800 px-6 py-4 items-center justify-between">
         <div className="flex items-center gap-8">
-          <Link to="/" className="text-xl font-bold text-green-400">INV Tracker</Link>
+          <Link to="/" aria-label="Statline home"><Logo size="md" /></Link>
           <nav aria-label="Main" className="flex gap-6">
             {TOP_NAV.map((n) => (
               <Link key={n.to} to={n.to} aria-current={pathname === n.to ? 'page' : undefined}
@@ -100,7 +101,7 @@ export default function Layout({ children }) {
 
       {/* ── Mobile header ── */}
       <header className="md:hidden sticky top-0 z-30 bg-gray-950/95 backdrop-blur border-b border-gray-800 px-4 py-3 flex items-center justify-between pt-safe">
-        <Link to="/" className="text-lg font-bold text-green-400">INV Tracker</Link>
+        <Link to="/" aria-label="Statline home"><Logo size="sm" /></Link>
         <div className="flex items-center gap-3">
           {isVIP && <Star className="w-3.5 h-3.5 text-purple-400" aria-label="VIP" />}
           <button onClick={() => setMenuOpen(true)} className="flex flex-col gap-1.5 p-1"

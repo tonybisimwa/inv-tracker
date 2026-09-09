@@ -1,7 +1,7 @@
 {
-  "name": "INV Tracker",
-  "short_name": "INV",
-  "description": "Track your bets. Know your edge.",
+  "name": "Statline",
+  "short_name": "Statline",
+  "description": "Track every play. Know your numbers.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

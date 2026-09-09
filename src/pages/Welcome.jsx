@@ -4,6 +4,7 @@ import { signInWithPopup } from 'firebase/auth'
 import { TrendingUp, Trophy, BarChart2, Clock } from 'lucide-react'
 import { auth, googleProvider } from '../firebase/config'
 import { authErrorMessage } from '../utils/authErrors'
+import Logo from '../components/Logo'
 
 const features = [
   { Icon: TrendingUp, title: 'Daily P&L Tracking', desc: 'Log every bet and see your profit/loss by day, week, month, or all time.' },
@@ -37,7 +38,7 @@ export default function Welcome() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <header className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
-        <span className="text-xl font-bold text-green-400">INV Tracker</span>
+        <Logo size="md" />
         <button
           onClick={() => navigate('/login')}
           className="text-sm text-gray-400 hover:text-gray-100 transition-colors border border-gray-700 px-4 py-1.5 rounded-lg"
@@ -48,16 +49,16 @@ export default function Welcome() {
 
       <main className="max-w-4xl mx-auto px-6 py-20 text-center">
         <div className="inline-block bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-medium px-3 py-1 rounded-full mb-6">
-          Your personal betting journal
+          Your personal performance journal
         </div>
 
         <h1 className="text-3xl sm:text-5xl font-bold leading-tight mb-4">
-          Track your bets.<br />
-          <span className="text-green-400">Know your edge.</span>
+          Track every play.<br />
+          <span className="text-green-400">Know your numbers.</span>
         </h1>
 
         <p className="text-gray-400 text-base sm:text-lg mb-8 max-w-xl mx-auto">
-          Stop guessing. INV Tracker gives you a full picture of your daily P&L,
+          Stop guessing. Statline gives you a full picture of your daily P&L,
           win rate, ROI, and bankroll — built for sports betting.
         </p>
 

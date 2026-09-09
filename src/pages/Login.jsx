@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
 import { auth, googleProvider } from '../firebase/config'
 import { authErrorMessage } from '../utils/authErrors'
+import Logo from '../components/Logo'
 
 const FIELD = 'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:border-green-500 transition-colors'
 
@@ -70,8 +71,8 @@ export default function Login() {
         </div>
 
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-green-400">INV Tracker</h1>
-          <p className="text-gray-400 mt-2 text-sm">Your daily betting journal</p>
+          <h1><Logo size="lg" /></h1>
+          <p className="text-gray-400 mt-2 text-sm">Track every play. Know your numbers.</p>
         </div>
 
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">

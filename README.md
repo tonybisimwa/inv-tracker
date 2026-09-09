@@ -1,8 +1,20 @@
-# inv-tracker
+# Statline
+
+*Track every play. Know your numbers.*
 
 A sports-betting journal and tipster platform. Users log their own bets — by hand or
 by photographing a betting slip — and track bankroll, ROI, and unit performance over
 time. An admin publishes daily plays, split into a free tier and a paid VIP tier.
+
+The name and voice deliberately borrow from sports analytics rather than wagering: a
+statline is a player's performance summary, and this is the user's. Product copy
+leads with measurement ("performance journal", "know your numbers"); the SEO
+description still says "sports betting" because that's the search term.
+
+Brand: `Logo.jsx` holds the mark and wordmark — three ascending pills drawn in
+`currentColor` so callers set the colour with a text class. `public/favicon.svg` is
+the same mark on gray-950, kept inside the maskable safe zone. Accent is green-400
+(`#05df72` in sRGB); the repo directory is still `inv-tracker`.
 
 ## Stack
 
