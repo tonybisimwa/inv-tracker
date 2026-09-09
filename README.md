@@ -66,7 +66,7 @@ src/
   components/  presentational + BetForm / SlipScanner
   utils/       pure functions — calculations, slip parsing, concurrency
 firestore.rules          access control (see below)
-firestore.indexes.json   composite indexes
+firestore.indexes.json   composite indexes (currently none needed)
 ```
 
 Routes are code-split with `React.lazy`. This matters for `AddBet`, which pulls in
@@ -111,6 +111,13 @@ client must query `where('tier', '==', 'free')` explicitly — which is why
 `PlaysContext` runs two separate listeners and only attaches the VIP one when the
 user is entitled to it.
 
+Those listeners deliberately do **not** use `orderBy`. Combining an equality filter
+on `tier` with `orderBy('gameTime')` requires a composite index, and a missing index
+rejects the entire listener — which looks exactly like plays failing to save. Plays
+are sorted client-side instead; there are only a handful a day. Both listeners also
+pass an error callback, because a rejected `onSnapshot` reports nowhere else and
+would otherwise leave the page silently empty.
+
 ### One-time backfill before deploying
 
 Plays are now fetched by two `where('tier', '==', …)` queries. A document with no
@@ -130,7 +137,7 @@ Backfill any that turn up with `tier: 'free'` before deploying the rules.
 ### Deploying and testing rules
 
 ```bash
-firebase deploy --only firestore:rules,firestore:indexes
+firebase deploy --only firestore:rules
 ```
 
 Running the rules against the emulator requires a **JDK**, which the rules test

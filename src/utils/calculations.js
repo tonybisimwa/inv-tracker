@@ -147,3 +147,26 @@ export function maxDrawdown(series) {
   })
   return Math.abs(worst)
 }
+
+// gameTime is optional on a play, and null for anything published without a date.
+// Returns null for missing or unparseable values so they can be ordered explicitly
+// rather than compared as NaN.
+export function gameTimeMs(play) {
+  const t = play.gameTime ? new Date(play.gameTime).getTime() : NaN
+  return Number.isFinite(t) ? t : null
+}
+
+// Newest game first, undated last. Plays are sorted client-side rather than with
+// orderBy() because combining an equality filter on tier with orderBy('gameTime')
+// needs a composite index, and a missing index rejects the whole listener.
+//
+// Written as explicit branches, not a subtraction on sentinels: -Infinity minus
+// -Infinity is NaN, and a comparator that returns NaN leaves sort order undefined.
+export function byGameTimeDesc(a, b) {
+  const ta = gameTimeMs(a)
+  const tb = gameTimeMs(b)
+  if (ta === null && tb === null) return 0
+  if (ta === null) return 1
+  if (tb === null) return -1
+  return tb - ta
+}

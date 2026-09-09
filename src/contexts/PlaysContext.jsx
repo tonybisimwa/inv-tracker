@@ -1,12 +1,19 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, setDoc } from 'firebase/firestore'
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where, setDoc } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from './AuthContext'
+import { byGameTimeDesc } from '../utils/calculations'
 
 const PlaysContext = createContext(null)
 
 const playsCol = () => collection(db, 'plays')
 const settingsRef = () => doc(db, 'settings', 'tipster')
+
+// A rejected listener (missing index, denied read) only reaches the error
+// callback. Without one it fails silently and the page just renders empty.
+function logListenerError(label) {
+  return (err) => console.error(`[plays] ${label} listener failed:`, err)
+}
 
 // The tipster's public record, derived from every play. Kept in the
 // admin-written settings doc so non-VIP users can see an honest all-time
@@ -40,9 +47,12 @@ export function PlaysProvider({ children }) {
   // whole query is rejected.
   useEffect(() => {
     if (!user) { setFreePlays([]); setFreeLoading(false); return }
-    const q = query(playsCol(), where('tier', '==', 'free'), orderBy('gameTime', 'desc'))
+    const q = query(playsCol(), where('tier', '==', 'free'))
     return onSnapshot(q, (snap) => {
-      setFreePlays(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setFreePlays(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byGameTimeDesc))
+      setFreeLoading(false)
+    }, (err) => {
+      logListenerError('free')(err)
       setFreeLoading(false)
     })
   }, [user])
@@ -50,21 +60,33 @@ export function PlaysProvider({ children }) {
   useEffect(() => {
     if (!canSeeVIP) { setVipPlays([]); setVipLoading(false); return }
     setVipLoading(true)
-    const q = query(playsCol(), where('tier', '==', 'vip'), orderBy('gameTime', 'desc'))
+    const q = query(playsCol(), where('tier', '==', 'vip'))
     return onSnapshot(q, (snap) => {
-      setVipPlays(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setVipPlays(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byGameTimeDesc))
+      setVipLoading(false)
+    }, (err) => {
+      logListenerError('vip')(err)
       setVipLoading(false)
     })
   }, [canSeeVIP])
 
-  const plays = [...freePlays, ...vipPlays].sort((a, b) => new Date(b.gameTime) - new Date(a.gameTime))
+  const plays = [...freePlays, ...vipPlays].sort(byGameTimeDesc)
   const loading = freeLoading || vipLoading
 
   // Only admins mutate plays, and admins receive every play, so recomputing
   // the record from the local list is safe here.
+  //
+  // This is secondary bookkeeping and must never fail the write it follows: if
+  // it threw, publishing a play that had already saved would report failure and
+  // invite a retry that duplicates it. The next mutation recomputes from scratch,
+  // so a skipped sync self-heals.
   async function syncRecord(next) {
     if (!isAdmin) return
-    await setDoc(settingsRef(), { record: tallyRecord(next) }, { merge: true })
+    try {
+      await setDoc(settingsRef(), { record: tallyRecord(next) }, { merge: true })
+    } catch (err) {
+      console.error('[plays] could not update the public record aggregate:', err)
+    }
   }
 
   async function addPlay(data) {

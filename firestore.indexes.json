@@ -1,13 +1,4 @@
 {
-  "indexes": [
-    {
-      "collectionGroup": "plays",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "tier", "order": "ASCENDING" },
-        { "fieldPath": "gameTime", "order": "DESCENDING" }
-      ]
-    }
-  ],
+  "indexes": [],
   "fieldOverrides": []
 }

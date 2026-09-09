@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   calcPayout, calcPL, fmtCurrency, fmtOdds, fmtUnits, suggestedUnit,
   validateBet, groupByPeriod, summarize, currentStreak, breakdownBy,
-  biggestSwing, buildBankrollSeries, maxDrawdown,
+  biggestSwing, buildBankrollSeries, maxDrawdown, gameTimeMs, byGameTimeDesc,
 } from './calculations.js'
 
 const bet = (o) => ({ sport: 'NFL', betType: 'Spread', stake: 10, odds: -110, event: 'e', ...o })
@@ -259,4 +259,64 @@ test('maxDrawdown takes the largest of several dips', () => {
 
 test('maxDrawdown is reported as a positive magnitude', () => {
   assert.equal(maxDrawdown([{ value: 100 }, { value: 40 }]), 60)
+})
+
+// ── Play ordering ───────────────────────────────────────────────────────────
+// Plays are ordered client-side because an equality filter on tier plus
+// orderBy('gameTime') would need a composite index, and a missing index rejects
+// the listener outright — which presents as plays failing to save.
+
+const play = (id, gameTime) => ({ id, gameTime })
+
+test('gameTimeMs returns null for a missing or unparseable date', () => {
+  assert.equal(gameTimeMs(play('a', null)), null)
+  assert.equal(gameTimeMs(play('a', undefined)), null)
+  assert.equal(gameTimeMs(play('a', '')), null)
+  assert.equal(gameTimeMs(play('a', 'not a date')), null)
+})
+
+test('gameTimeMs parses an ISO string to epoch millis', () => {
+  assert.equal(gameTimeMs(play('a', '2026-01-01T00:00:00.000Z')), Date.parse('2026-01-01T00:00:00.000Z'))
+})
+
+test('byGameTimeDesc puts the newest game first', () => {
+  const s = [play('old', '2026-01-01T00:00:00Z'), play('new', '2026-06-01T00:00:00Z')].sort(byGameTimeDesc)
+  assert.deepEqual(s.map((p) => p.id), ['new', 'old'])
+})
+
+test('byGameTimeDesc sorts undated plays last', () => {
+  const s = [play('undated', null), play('dated', '2026-01-01T00:00:00Z')].sort(byGameTimeDesc)
+  assert.deepEqual(s.map((p) => p.id), ['dated', 'undated'])
+})
+
+test('byGameTimeDesc never returns NaN, which would leave sort order undefined', () => {
+  const pairs = [
+    [play('a', null), play('b', null)],
+    [play('a', null), play('b', '2026-01-01T00:00:00Z')],
+    [play('a', 'garbage'), play('b', null)],
+    [play('a', 'garbage'), play('b', 'garbage')],
+    [play('a', '2026-01-01T00:00:00Z'), play('b', '2026-02-01T00:00:00Z')],
+  ]
+  pairs.forEach(([x, y]) => {
+    assert.ok(!Number.isNaN(byGameTimeDesc(x, y)))
+    assert.ok(!Number.isNaN(byGameTimeDesc(y, x)))
+  })
+})
+
+test('byGameTimeDesc treats two undated plays as equal', () => {
+  assert.equal(byGameTimeDesc(play('a', null), play('b', null)), 0)
+})
+
+test('byGameTimeDesc keeps every play when dated and undated are mixed', () => {
+  const many = [
+    play('1', null),
+    play('2', '2026-03-01T00:00:00Z'),
+    play('3', null),
+    play('4', '2026-01-01T00:00:00Z'),
+    play('5', 'bad'),
+  ]
+  const sorted = [...many].sort(byGameTimeDesc)
+  assert.equal(sorted.length, 5)
+  assert.deepEqual(sorted.slice(0, 2).map((p) => p.id), ['2', '4'])
+  assert.deepEqual(new Set(sorted.map((p) => p.id)), new Set(['1', '2', '3', '4', '5']))
 })
