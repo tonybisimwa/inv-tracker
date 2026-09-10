@@ -20,20 +20,44 @@ import ResponsibleGambling from '../components/ResponsibleGambling'
  * left in place for anyone still mid-flight, but nothing here writes to it.
  */
 
-/** Stripe redirects back here, but the webhook is a separate round trip that can
- *  land a beat later. Rather than show "not VIP" to someone who just paid, we say
- *  what's happening — the profile listener flips this view when the grant arrives. */
-function Activating() {
+/**
+ * Stripe redirects back here, but the webhook is a separate round trip that can
+ * land a beat later. Rather than show "not VIP" to someone who just paid, we say
+ * what's happening — the profile listener flips this view when the grant arrives.
+ *
+ * `slow` matters more than it looks. A card authorises in a second, but not every
+ * method does: bank debits and stablecoin payments go through `processing` before
+ * `succeeded`, which can take minutes. Whatever we show after the short wait must
+ * never resemble a failure, because the obvious response to "looks like it didn't
+ * work" is to pay a second time.
+ */
+function Activating({ slow }) {
   return (
     <div className="max-w-md mx-auto text-center space-y-6 pt-16">
       <Loader2 className="w-12 h-12 text-purple-400 mx-auto animate-spin" />
       <div>
         <h1 className="text-2xl font-bold">Payment received</h1>
-        <p className="text-gray-400 mt-2 text-sm leading-relaxed">
-          Turning on your VIP access now — this usually takes a few seconds.
-          You don't need to do anything.
-        </p>
+        {slow ? (
+          <p className="text-gray-400 mt-2 text-sm leading-relaxed">
+            Still confirming with your payment provider. Some methods settle a few
+            minutes after you approve them — <strong className="text-gray-300">your
+            payment went through, so please don't pay again</strong>. VIP switches
+            on by itself, even if you close this page.
+          </p>
+        ) : (
+          <p className="text-gray-400 mt-2 text-sm leading-relaxed">
+            Turning on your VIP access now — this usually takes a few seconds.
+            You don't need to do anything.
+          </p>
+        )}
       </div>
+      {slow && (
+        <p className="text-sm text-gray-500">
+          <Link to="/plays" className="text-purple-400 hover:text-purple-300 font-medium">
+            Browse plays while you wait →
+          </Link>
+        </p>
+      )}
     </div>
   )
 }
@@ -100,13 +124,18 @@ export default function VIPCheckout() {
   // Read once and hold it. The effect below strips the query string, so reading
   // it live would make the "no charge was made" notice flash and disappear.
   const [returned] = useState(() => searchParams.get('checkout'))
-  const [awaiting, setAwaiting] = useState(returned === 'success')
+  const [awaiting] = useState(returned === 'success')
+  const [slow, setSlow] = useState(false)
 
-  // Don't wait forever on a webhook that isn't coming. After 20 seconds, drop
-  // the spinner and show the plans again so the page is never a dead end.
+  // After 20 seconds, change the wording rather than the destination. An earlier
+  // version dropped back to the plan list here, which reads as a failed payment
+  // to anyone whose method settles asynchronously — and the obvious next move is
+  // to pay again. Someone who returned from a completed Checkout has paid; the
+  // page's job from that point is to reassure and give them somewhere to go, not
+  // to re-offer the thing they just bought.
   useEffect(() => {
     if (!awaiting) return
-    const timer = setTimeout(() => setAwaiting(false), 20000)
+    const timer = setTimeout(() => setSlow(true), 20000)
     return () => clearTimeout(timer)
   }, [awaiting])
 
@@ -131,7 +160,7 @@ export default function VIPCheckout() {
     )
   }
 
-  if (awaiting) return <Layout><Activating /></Layout>
+  if (awaiting) return <Layout><Activating slow={slow} /></Layout>
 
   return (
     <Layout>

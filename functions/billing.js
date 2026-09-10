@@ -28,9 +28,24 @@ const stripeClient = () => new Stripe(STRIPE_SECRET_KEY.value())
 
 /** Stripe moved the period end onto the subscription item; older API versions
  *  keep it on the subscription. Read whichever this account's version returns. */
-function periodEndMs(subscription) {
+export function periodEndMs(subscription) {
   const secs = subscription.current_period_end ?? subscription.items?.data?.[0]?.current_period_end
   return Number.isFinite(secs) ? secs * 1000 : null
+}
+
+/**
+ * Finds the subscription an invoice belongs to, or null if it isn't for one.
+ *
+ * Same hazard as `periodEndMs`: Stripe relocated this field. It used to be
+ * `invoice.subscription`; newer API versions nest it under
+ * `invoice.parent.subscription_details`. Reading only one shape means renewals
+ * silently stop registering the day the account's API version moves — and the
+ * symptom is members losing access, not an error anyone sees. Both are read.
+ */
+export function subscriptionIdFromInvoice(invoice) {
+  const candidate = invoice?.subscription ?? invoice?.parent?.subscription_details?.subscription
+  if (typeof candidate === 'string') return candidate
+  return typeof candidate?.id === 'string' ? candidate.id : null
 }
 
 function priceIdFor(plan) {
@@ -178,6 +193,15 @@ async function resolveUid(stripe, { uid, customerId }) {
 
 // Statuses that should keep the paywall open. `past_due` stays in: Stripe is
 // still retrying the card, and cutting a member off mid-retry loses the renewal.
+// The exposure is bounded by Stripe's dunning schedule — once retries are
+// exhausted the subscription moves to `canceled`/`unpaid` and we revoke.
+//
+// Worth knowing if stablecoin payments are ever enabled: a failed stablecoin
+// renewal has no card to retry, so that goodwill window is given away for
+// nothing. It's still bounded, so it's a cost rather than a hole — but if
+// stablecoin becomes a meaningful share of renewals, revisit this by reading the
+// failed invoice's payment method type rather than by dropping `past_due`
+// wholesale, which would cut off legitimate card members mid-retry.
 const ENTITLED = new Set(['active', 'trialing', 'past_due'])
 
 async function applySubscription(stripe, subscription) {
@@ -256,6 +280,39 @@ export const stripeWebhook = onRequest(
         case 'customer.subscription.deleted':
           await applySubscription(stripe, event.data.object)
           break
+
+        // Renewals. `customer.subscription.updated` also fires when the period
+        // advances, so for cards this is a second, independent path to the same
+        // grant — every write is an idempotent merge, so both firing is harmless.
+        // It is not redundant for stablecoin subscriptions: Stripe documents
+        // `invoice.paid` as the renewal signal there, because settlement is
+        // asynchronous and completes after the subscription object is written.
+        case 'invoice.paid': {
+          const subId = subscriptionIdFromInvoice(event.data.object)
+          if (subId) {
+            await applySubscription(stripe, await stripe.subscriptions.retrieve(subId))
+          }
+          break
+        }
+
+        // Deliberately does not revoke. The subscription moves to `past_due` and
+        // `customer.subscription.updated` decides entitlement — one place makes
+        // that call, not two. This exists to make the failure visible, and to
+        // record which method failed: a declined card usually recovers on retry,
+        // a failed stablecoin payment does not.
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object
+          logger.warn('invoice payment failed', {
+            invoice: invoice.id,
+            customer: typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id,
+            subscription: subscriptionIdFromInvoice(invoice),
+            attempt: invoice.attempt_count,
+            nextAttempt: invoice.next_payment_attempt,
+            reason: invoice.last_finalization_error?.message ?? null,
+          })
+          break
+        }
+
         default:
           // Everything else is noise for our purposes; acknowledge so Stripe
           // stops retrying it.

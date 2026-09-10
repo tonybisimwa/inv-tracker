@@ -65,7 +65,7 @@ published secret. This bit the project once already — see [History](#history).
 
 ## Cloud Functions
 
-Six callables and one webhook, all in `functions/`:
+Five callables and one webhook, all in `functions/`:
 
 | | |
 |---|---|
@@ -90,9 +90,10 @@ cheaper price than the plan it claims.
    put those price ids in `functions/.env`.
 2. Set the three secrets above. Use test keys until step 5 passes.
 3. Register the webhook endpoint at `https://<your-domain>/api/stripe-webhook`,
-   subscribed to `checkout.session.completed`,
-   `customer.subscription.created`, `customer.subscription.updated`, and
-   `customer.subscription.deleted`. Put its signing secret in
+   subscribed to six events:
+   `checkout.session.completed`, `customer.subscription.created`,
+   `customer.subscription.updated`, `customer.subscription.deleted`,
+   `invoice.paid`, and `invoice.payment_failed`. Put its signing secret in
    `STRIPE_WEBHOOK_SECRET`.
    The path is a Hosting rewrite to the function, so it stays on your own
    origin — see the `rewrites` block in `firebase.json`.
@@ -109,6 +110,93 @@ Verify the webhook signature against `req.rawBody`, never a re-serialised body:
 `JSON.parse` → `JSON.stringify` does not round-trip byte-for-byte, and the
 signature is over the bytes.
 
+### Crypto and stablecoin payments
+
+**The integration is already done.** Statline uses hosted Checkout and
+deliberately leaves `payment_method_types` unset, which is the exact
+configuration Stripe's stablecoin docs describe as needing no code changes —
+Stripe displays stablecoin options to eligible customers automatically. All
+`line_items` are priced in `usd`, which is the other requirement. Enabling it is
+a Dashboard action, not a deploy.
+
+| | |
+|---|---|
+| Tokens | USDC (Tempo, Ethereum, Solana, Polygon, Base), USDP, USDG |
+| Your business must be in | the US, **every state except New York** |
+| Customers | global, excluding sanctioned countries |
+| You receive | **USD in your Stripe balance** — no crypto held, no volatility, no crypto bookkeeping |
+| Fee | **1.5% flat**, versus 2.9% + 30¢ for cards |
+| Chargebacks | **none** — no dispute mechanism exists |
+| Per-customer cap | $10,000, so irrelevant here |
+
+The fee shape matters more than the headline rate, because 1.5% carries no fixed
+30¢: on the weekly plan you net $9.84 instead of $9.40, about 4.7% more revenue.
+The cheaper the plan, the bigger the gain. And in a category where "my picks
+lost" becomes a friendly-fraud dispute, no chargebacks is worth real money on its
+own.
+
+To turn it on:
+
+1. Dashboard → Payment methods → request **Stablecoins and Crypto**. Stripe
+   reviews it; the method shows "Pending" until approved.
+2. Recurring stablecoin subscriptions are a **gated preview, not GA**. One-time
+   stablecoin payment is the generally-available path. Request preview access
+   separately:
+   ```bash
+   curl https://docs.stripe.com/preview/register \
+     -d '{"email":"EMAIL","preview":"stablecoin_payments_preview"}'
+   ```
+3. Once approved, update the payment-methods sentence under the Continue button
+   in `src/pages/VIPCheckout.jsx`. Until then it correctly does not promise
+   stablecoin.
+
+**Order this after the business confirmation in the pre-launch checklist, not
+before.** Requesting the payment method triggers an additional Stripe
+underwriting review, and you do not want a second look at the account before
+you've passed the first.
+
+**And be clear about what this does not buy you.** It is the same Stripe account
+under the same restricted-business list. It does not hedge the processor risk
+below — if Stripe freezes the account, stablecoin-via-Stripe freezes with it.
+This is a margin and reach improvement, not resilience.
+
+#### If you ever do need a rail outside Stripe
+
+Not built, deliberately — a second payment path that can't be tested end to end
+is a liability to carry through launch, and with no customers there's no freeze
+exposure yet. Recorded here so the design work isn't lost:
+
+Crypto outside Stripe has **no recurring primitive** — there is no card-on-file
+equivalent, so you cannot pull from a wallet next month. The model has to be a
+**prepaid fixed-length VIP pass** ("30 days for $29.99, paid once, expires").
+`startVipTrial` already proves the shape works: it grants VIP with no Stripe
+subscription at all. A pass is the same thing with a longer clock, landing on the
+existing `grantVip(uid, { plan, untilMs })` seam.
+
+Four things would have to change, and the first two are latent bugs that only
+bite once a non-Stripe grant exists:
+
+1. **`grantVip` overwrites `vipUntilMs`.** Right for Stripe, where the period end
+   is authoritative. Wrong for stackable passes — a second 30-day pass bought
+   with 10 days left must yield 40, i.e. `max(now, currentUntil) + duration`.
+   It is deliberately *not* pre-emptively fixed: stacking would be incorrect for
+   every caller that exists today.
+2. **`revokeVip` nulls `vipPlan` unconditionally.** A `customer.subscription.deleted`
+   from an old Stripe subscription would wipe a paid pass's remaining time.
+3. **`Settings.jsx` branches `trial.active` → `stripeCustomerId` → else**, so a
+   pass holder with no Stripe customer falls through to an upsell. Needs a third
+   branch.
+4. **`/legal` promises refunds** for breakage and error. Crypto payments are
+   irreversible; that clause needs a carve-out first.
+
+On providers: **NOWPayments** is the interesting one precisely because its own
+site lists "Casinos" and "iGaming" among the sectors it serves — a provider whose
+stated policy doesn't put you in the restricted bucket is the whole point of the
+exercise. ~1% starting fee, 350+ coins. **BTCPay Server** is the other extreme:
+0% fees and no third party at all, but you self-host and maintain the node and
+you hold BTC. Coinbase Commerce's docs were unreachable when this was researched,
+so nothing about it is recorded here rather than guessed.
+
 ## Scripts
 
 ```bash
@@ -118,7 +206,7 @@ npm run preview  # serve the built bundle
 npm run lint           # oxlint
 npm test               # node:test — pure logic in src/utils
 npm run test:rules     # firestore.rules against the emulator (needs a JDK)
-npm run test:functions # the scan allowance against the emulator (needs a JDK)
+npm run test:functions # scan allowance + billing adapters, on the emulator (needs a JDK)
 ```
 
 ## Layout
@@ -313,6 +401,7 @@ firebase deploy --only firestore:rules
       secret is different from the test one)
 - [ ] Confirm in writing with Stripe that they will support this business — see
       below
+- [ ] *Only after that:* request stablecoin payments, if you want them
 - [ ] Have a lawyer read `/legal`
 - [ ] Rotate the OpenAI key that was previously exposed client-side
 
@@ -326,10 +415,12 @@ firebase deploy --only firestore:rules
   allowance, the journal — and treats picks as included. That underwrites much
   closer to SaaS, and it's why `FEATURE_MATRIX` puts "Your journal" first. Don't
   reorder it to lead with picks without understanding what you're trading.
-- No automated coverage of React components, and none of the Stripe webhook's
-  subscription mapping — that one is reasoned about, not executed, and it's the
-  biggest remaining gap now that the quota is covered. Testing it properly wants
-  the Stripe CLI's `stripe trigger` against the emulator.
+- No automated coverage of React components, and the Stripe webhook's
+  subscription mapping is still only partly covered: the two API-shape adapters
+  are pinned by `functions/billing.test.js`, but `applySubscription`'s
+  status-to-entitlement decision is reasoned about, not executed. That's the
+  biggest remaining gap now that the quota is covered, and testing it properly
+  wants the Stripe CLI's `stripe trigger` against the emulator.
 - Not built yet: analytics, offline persistence, auto-settling results from a
   scores API, push when plays drop, a trial-ending email.
 
