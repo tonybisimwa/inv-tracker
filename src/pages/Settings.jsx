@@ -1,15 +1,28 @@
 import { useState } from 'react'
-import { Wallet, Sparkles } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Wallet, Sparkles, Star, Download, TriangleAlert, ExternalLink } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
+import { useBets } from '../hooks/useBets'
+import { useBilling } from '../hooks/useBilling'
+import { useScanQuota } from '../hooks/useScanQuota'
+import { deleteAccount as deleteAccountRemote } from '../firebase/api'
 import { fmtCurrency, suggestedUnit } from '../utils/calculations'
+import { formatTimeLeft } from '../utils/entitlements'
 import Layout from '../components/Layout'
+import ResponsibleGambling from '../components/ResponsibleGambling'
 
 const FIELD = 'w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-100 focus:border-green-500 transition-colors'
 
 export default function Settings() {
-  const { user, username, bankroll, unitSize, isVIP, vipPlan, vipUntil, updateProfile } = useAuth()
+  const {
+    user, username, bankroll, unitSize, isVIP, vipPlan, vipUntil,
+    tier, trial, cancelAtPeriodEnd, stripeCustomerId, updateProfile,
+  } = useAuth()
   const toast = useToast()
+  const { bets } = useBets()
+  const { busy, portal } = useBilling()
+  const quota = useScanQuota()
 
   const [form, setForm] = useState({
     bankroll: bankroll ?? '',
@@ -17,6 +30,42 @@ export default function Settings() {
   })
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState([])
+  const [confirmDelete, setConfirmDelete] = useState('')
+  const [deleting, setDeleting] = useState(false)
+
+  /**
+   * Exports the journal as JSON, built in the browser from data already loaded.
+   * No server round trip, and no new endpoint that could leak someone else's
+   * bets — it can only ever write out what this session can already read.
+   */
+  function exportData() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      account: { email: user?.email, username, tier, bankroll, unitSize },
+      bets,
+    }
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    )
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `statline-export-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success(`Exported ${bets.length} ${bets.length === 1 ? 'bet' : 'bets'}.`)
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      // Deletes the Auth record too, which signs the user out — the auth
+      // listener unmounts this page on its own, so there's nothing to navigate.
+      await deleteAccountRemote()
+    } catch (err) {
+      toast.error(err.message)
+      setDeleting(false)
+    }
+  }
 
   const set = (patch) => { setForm((f) => ({ ...f, ...patch })); setErrors([]) }
 
@@ -153,12 +202,121 @@ export default function Settings() {
             </div>
             {isVIP && vipUntil && (
               <div className="flex justify-between gap-4">
-                <dt className="text-gray-500">Renews / expires</dt>
+                <dt className="text-gray-500">{cancelAtPeriodEnd ? 'Access ends' : 'Renews'}</dt>
                 <dd className="text-gray-300 tabular">{new Date(vipUntil).toLocaleDateString()}</dd>
               </div>
             )}
+            <div className="flex justify-between gap-4">
+              <dt className="text-gray-500">Slip scans left today</dt>
+              <dd className="text-gray-300 tabular">
+                {quota.loading ? '—' : `${quota.remaining} of ${quota.limit}`}
+              </dd>
+            </div>
           </dl>
         </div>
+
+        {/* ── Subscription ── */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Star className="w-4 h-4 text-purple-400" aria-hidden="true" />
+            <h2 className="text-sm font-semibold">Subscription</h2>
+          </div>
+
+          {trial.active ? (
+            <>
+              <p className="text-sm text-gray-400">
+                Your free trial has {formatTimeLeft(trial.msLeft)}. There's no card on
+                file, so nothing will be charged when it ends.
+              </p>
+              <Link to="/pricing"
+                className="inline-block bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors">
+                Choose a plan
+              </Link>
+            </>
+          ) : stripeCustomerId ? (
+            <>
+              <p className="text-sm text-gray-400">
+                {cancelAtPeriodEnd
+                  ? 'Your subscription is set to end and will not renew. You can restart it any time.'
+                  : 'Update your card, switch plan, download invoices, or cancel — all in one place.'}
+              </p>
+              {/* Stripe's own portal rather than a billing UI of our own: it is
+                  always correct about proration and tax, and cancelling never
+                  needs to reach a human. */}
+              <button
+                onClick={portal}
+                disabled={!!busy}
+                className="inline-flex items-center gap-2 border border-gray-700 hover:border-gray-500 text-gray-200 font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50"
+              >
+                {busy === 'portal' ? 'Opening…' : 'Manage subscription'}
+                <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-gray-400">
+                You're on Standard. VIP adds the full daily card and batch slip scanning.
+              </p>
+              <Link to="/pricing"
+                className="inline-block bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors">
+                Compare plans
+              </Link>
+            </>
+          )}
+        </div>
+
+        {/* ── Your data ── */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Download className="w-4 h-4 text-green-400" aria-hidden="true" />
+            <h2 className="text-sm font-semibold">Your data</h2>
+          </div>
+          <p className="text-sm text-gray-400">
+            Download your whole journal as JSON — {bets.length} {bets.length === 1 ? 'bet' : 'bets'}.
+            It's your record, and it should never be locked in here.
+          </p>
+          <button
+            onClick={exportData}
+            className="border border-gray-700 hover:border-gray-500 text-gray-200 font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors"
+          >
+            Export my data
+          </button>
+        </div>
+
+        {/* ── Delete account ── */}
+        <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <TriangleAlert className="w-4 h-4 text-red-400" aria-hidden="true" />
+            <h2 className="text-sm font-semibold text-red-300">Delete account</h2>
+          </div>
+          <p className="text-sm text-gray-400">
+            Permanently removes your profile, every bet you've logged, and your
+            sign-in. Any active subscription is cancelled. This cannot be undone —
+            export first if you want a copy.
+          </p>
+          <div className="space-y-2">
+            <label htmlFor="confirmDelete" className="block text-xs font-medium text-gray-400">
+              Type <span className="font-mono text-red-300">DELETE</span> to confirm
+            </label>
+            <input
+              id="confirmDelete"
+              value={confirmDelete}
+              onChange={(e) => setConfirmDelete(e.target.value)}
+              placeholder="DELETE"
+              autoComplete="off"
+              className="w-full sm:w-48 bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-100 placeholder-gray-700 focus:border-red-500 transition-colors"
+            />
+          </div>
+          <button
+            onClick={handleDelete}
+            disabled={confirmDelete !== 'DELETE' || deleting}
+            className="bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors"
+          >
+            {deleting ? 'Deleting…' : 'Delete my account'}
+          </button>
+        </div>
+
+        <ResponsibleGambling />
       </div>
     </Layout>
   )

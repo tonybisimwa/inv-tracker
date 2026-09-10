@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Camera, Check, Loader2, RotateCcw, TriangleAlert } from 'lucide-react'
-import { scanSlips, getRemainingScans } from '../utils/slipScanner'
+import { Link } from 'react-router-dom'
+import { Camera, Check, Loader2, RotateCcw, Sparkles, TriangleAlert } from 'lucide-react'
+import { scanSlips } from '../utils/slipScanner'
+import { TIERS } from '../config/plans'
+import { useAuth } from '../contexts/AuthContext'
+import { useScanQuota } from '../hooks/useScanQuota'
 
 const MAX_SIZE = 15 * 1024 * 1024
 
@@ -19,13 +23,15 @@ function triage(files) {
 }
 
 export default function SlipScanner({ onExtracted }) {
+  const { canBatchScan, slipsPerScan } = useAuth()
+  const quota = useScanQuota()
   const [items, setItems]       = useState([]) // { id, name, url, status, error }
   const [scanning, setScanning] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [notice, setNotice]     = useState('')
+  const [upsell, setUpsell]     = useState(false)
   const inputRef = useRef()
   const urlsRef  = useRef([])
-  const apiKey   = import.meta.env.VITE_OPENAI_API_KEY
 
   // Object URLs for the thumbnails outlive individual renders — release them on unmount
   useEffect(() => () => urlsRef.current.forEach((u) => URL.revokeObjectURL(u)), [])
@@ -43,7 +49,7 @@ export default function SlipScanner({ onExtracted }) {
     setItems((prev) => [...prev, ...batch])
     setScanning(true)
 
-    const results = await scanSlips(files, apiKey, {
+    const results = await scanSlips(files, {
       onStart:   (i) => patch(batch[i].id, { status: 'scanning' }),
       onSettled: (i, r) => patch(batch[i].id, { status: r.status, error: r.error || '' }),
     })
@@ -65,16 +71,29 @@ export default function SlipScanner({ onExtracted }) {
 
     const { accepted, rejected } = triage(picked)
     const messages = rejected.map((r) => `${r.file.name}: ${r.error}`)
-
-    // Don't fire off scans we know the hourly limit will reject
-    const remaining = getRemainingScans()
     let toScan = accepted
-    if (accepted.length > remaining) {
-      toScan = accepted.slice(0, Math.max(remaining, 0))
+
+    // Batch scanning is the VIP tool. Standard still gets to scan — one slip at
+    // a time — so dropping a folder is a nudge, not a wall: we read the first and
+    // say what the rest would have cost.
+    if (toScan.length > slipsPerScan) {
+      const dropped = toScan.length - slipsPerScan
+      toScan = toScan.slice(0, slipsPerScan)
+      if (canBatchScan) {
+        messages.push(`Scanning ${slipsPerScan} at a time — add the other ${dropped} once this batch lands.`)
+      } else {
+        setUpsell(true)
+      }
+    }
+
+    // Don't fire off scans the server will only refuse
+    if (toScan.length > quota.remaining) {
+      const dropped = toScan.length - quota.remaining
+      toScan = toScan.slice(0, Math.max(quota.remaining, 0))
       messages.push(
-        remaining > 0
-          ? `Only ${remaining} scan${remaining === 1 ? '' : 's'} left this hour — scanning the first ${remaining} of ${accepted.length}.`
-          : 'Hourly scan limit reached. Try again later.'
+        quota.remaining > 0
+          ? `Only ${quota.remaining} scan${quota.remaining === 1 ? '' : 's'} left today — skipping ${dropped}.`
+          : "You've used today's scans. You can still add bets by hand below."
       )
     }
 
@@ -85,7 +104,7 @@ export default function SlipScanner({ onExtracted }) {
   async function retry(item) {
     setScanning(true)
     patch(item.id, { status: 'scanning', error: '' })
-    const [result] = await scanSlips([item.file], apiKey, {})
+    const [result] = await scanSlips([item.file])
     patch(item.id, { status: result.status, error: result.error || '' })
     setScanning(false)
     if (result.status === 'done') onExtracted([result.data])
@@ -97,32 +116,27 @@ export default function SlipScanner({ onExtracted }) {
     processFiles(e.dataTransfer.files)
   }
 
-  if (!apiKey) {
-    return (
-      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-sm text-yellow-400">
-        Add <code className="bg-yellow-500/20 px-1 rounded">VITE_OPENAI_API_KEY</code> to your <code className="bg-yellow-500/20 px-1 rounded">.env</code> file to enable slip scanning.
-      </div>
-    )
-  }
-
-  const failed    = items.filter((i) => i.status === 'error')
-  const settled   = items.filter((i) => i.status === 'done' || i.status === 'error').length
-  const remaining = getRemainingScans()
+  const failed   = items.filter((i) => i.status === 'error')
+  const settled  = items.filter((i) => i.status === 'done' || i.status === 'error').length
+  const exhausted = quota.remaining === 0 && !quota.loading
 
   return (
     <div className="space-y-3">
       <div
-        onClick={() => !scanning && inputRef.current.click()}
+        onClick={() => !scanning && !exhausted && inputRef.current.click()}
         onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
         className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
           dragging ? 'border-green-400 bg-green-500/10'
           : scanning ? 'border-gray-700 cursor-wait'
+          : exhausted ? 'border-gray-800 opacity-60 cursor-not-allowed'
           : 'border-gray-700 cursor-pointer hover:border-green-500/50 hover:bg-green-500/5'
         }`}
       >
-        <input ref={inputRef} type="file" accept="image/*" multiple className="hidden"
+        {/* `multiple` is the batch gate. Standard users get a single-file picker,
+            so the limit is visible in the OS dialog rather than after the fact. */}
+        <input ref={inputRef} type="file" accept="image/*" multiple={canBatchScan} className="hidden"
           onChange={(e) => { processFiles(e.target.files); e.target.value = '' }} />
 
         {scanning ? (
@@ -135,16 +149,45 @@ export default function SlipScanner({ onExtracted }) {
           </div>
         ) : (
           <div className="space-y-2">
-            <Camera className="w-8 h-8 text-gray-500 mx-auto" />
+            <Camera className={`w-8 h-8 mx-auto ${exhausted ? 'text-gray-700' : 'text-gray-500'}`} />
             <p className="text-sm text-gray-300 font-medium">
-              {items.length > 0 ? 'Add more slips' : 'Upload slip screenshots'}
+              {exhausted ? "No scans left today"
+                : items.length > 0 ? 'Add more slips'
+                : canBatchScan ? 'Upload slip screenshots' : 'Upload a slip screenshot'}
             </p>
             <p className="text-xs text-gray-500">
-              Drag &amp; drop or click to browse — pick as many as you like · {remaining} scan{remaining === 1 ? '' : 's'} left this hour
+              {exhausted
+                ? 'Your allowance refreshes through the day. Add bets by hand below in the meantime.'
+                : <>
+                    {canBatchScan
+                      ? `Drag & drop or click — up to ${slipsPerScan} at once`
+                      : 'Drag & drop or click to browse — one slip at a time'}
+                    {!quota.loading && ` · ${quota.remaining} of ${quota.limit} left today`}
+                  </>}
             </p>
           </div>
         )}
       </div>
+
+      {/* Shown only after someone actually tries to batch — an upsell that
+          answers a need they just demonstrated, rather than a permanent banner. */}
+      {upsell && !canBatchScan && (
+        <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl px-4 py-3 flex items-start gap-3">
+          <Sparkles className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <div className="flex-1 text-xs">
+            <p className="text-purple-200 font-medium">Scanned the first slip only.</p>
+            <p className="text-gray-400 mt-0.5">
+              VIP reads up to {TIERS.vip.limits.slipsPerScan} at once, so a whole night's slips go in one pass.
+            </p>
+            <Link to="/pricing" className="inline-block mt-2 text-purple-400 hover:text-purple-300 font-semibold">
+              Compare plans →
+            </Link>
+          </div>
+          <button onClick={() => setUpsell(false)} className="text-purple-500/60 hover:text-purple-400 text-xs">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {notice && (
         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-4 py-2.5 text-xs text-yellow-400 flex items-start gap-2">

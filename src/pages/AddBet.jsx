@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBets } from '../hooks/useBets'
+import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import BetForm from '../components/BetForm'
 import SlipScanner from '../components/SlipScanner'
@@ -11,6 +12,7 @@ let nextId = 0
 
 export default function AddBet() {
   const { addBet, addBets } = useBets()
+  const { canBatchScan } = useAuth()
   const navigate = useNavigate()
   const toast = useToast()
   const [scanned, setScanned] = useState([]) // { _id, ...betData } awaiting review
@@ -75,9 +77,11 @@ export default function AddBet() {
         <h1 className="text-2xl font-bold">Add Bets</h1>
 
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-gray-400">Scan Slips</h2>
-            <span className="text-xs text-gray-600">AI-powered · upload several at once</span>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-medium text-gray-400">{canBatchScan ? 'Scan Slips' : 'Scan a Slip'}</h2>
+            <span className="text-xs text-gray-600 text-right">
+              {canBatchScan ? 'AI-powered · upload several at once' : 'AI-powered · one at a time'}
+            </span>
           </div>
           <SlipScanner key={scannerKey} onExtracted={handleExtracted} />
         </div>

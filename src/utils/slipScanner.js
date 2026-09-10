@@ -1,154 +1,110 @@
-import OpenAI from 'openai'
-import { mapWithConcurrency } from './concurrency'
+/**
+ * Slip scanning, client side.
+ *
+ * Everything that used to happen here — the API key, the prompt, the parsing,
+ * the rate limit — now happens in the `scanSlip` Cloud Function. What's left is
+ * the part that genuinely needs a browser: resizing the image with a canvas
+ * before upload. That removes the OpenAI SDK from the bundle (~260 kB) along
+ * with the key it needed.
+ *
+ * The allowance is no longer readable from here either; it lives in
+ * users/{uid}/usage/scans and is read by useScanQuota, because a number the
+ * client keeps is a number the client can reset.
+ */
 
-const RATE_LIMIT_KEY = 'inv_scan_log'
-const MAX_SCANS_PER_HOUR = 20
+import { mapWithConcurrency } from './concurrency.js'
+import { scanSlipRemote } from '../firebase/api'
 
-// Slips scanned at once. Keeps us clear of OpenAI per-minute limits on a burst upload.
+// Slips read at once. Enough to feel instant on a batch, few enough to stay well
+// inside the function's per-instance concurrency and OpenAI's per-minute limits.
 const CONCURRENCY = 3
 
-function getRateLimitLog() {
-  try {
-    return JSON.parse(localStorage.getItem(RATE_LIMIT_KEY) || '[]')
-  } catch {
-    return []
-  }
-}
+const MAX_DIMENSION = 1200
+const JPEG_QUALITY = 0.85
 
-function checkRateLimit() {
-  const now = Date.now()
-  const hourAgo = now - 60 * 60 * 1000
-  const log = getRateLimitLog().filter((t) => t > hourAgo)
-  if (log.length >= MAX_SCANS_PER_HOUR) {
-    const oldest = log[0]
-    const resetIn = Math.ceil((oldest + 60 * 60 * 1000 - now) / 60000)
-    throw new Error(`Rate limit reached (${MAX_SCANS_PER_HOUR}/hour). Resets in ~${resetIn} min.`)
-  }
-  log.push(now)
-  localStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(log))
-}
-
-export function getRemainingScans() {
-  const now = Date.now()
-  const hourAgo = now - 60 * 60 * 1000
-  const log = getRateLimitLog().filter((t) => t > hourAgo)
-  return MAX_SCANS_PER_HOUR - log.length
-}
-
-async function compressImage(file) {
+/**
+ * Shrinks a slip to something worth uploading.
+ *
+ * A phone screenshot is often 3–8 MB; the model reads a 1200px JPEG just as well.
+ * This runs before the network call, so it also keeps us inside the callable
+ * request size limit on a large batch.
+ */
+export async function compressImage(file) {
   return new Promise((resolve, reject) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
+
     img.onload = () => {
-      const MAX = 1200
       let { width, height } = img
-      if (width > MAX || height > MAX) {
-        if (width > height) { height = Math.round((height * MAX) / width); width = MAX }
-        else { width = Math.round((width * MAX) / height); height = MAX }
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        if (width > height) {
+          height = Math.round((height * MAX_DIMENSION) / width)
+          width = MAX_DIMENSION
+        } else {
+          width = Math.round((width * MAX_DIMENSION) / height)
+          height = MAX_DIMENSION
+        }
       }
       const canvas = document.createElement('canvas')
       canvas.width = width
       canvas.height = height
       canvas.getContext('2d').drawImage(img, 0, 0, width, height)
       URL.revokeObjectURL(url)
-      canvas.toBlob((blob) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(reader.result)
-        reader.onerror = reject
-        reader.readAsDataURL(blob)
-      }, 'image/jpeg', 0.85)
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { reject(new Error('Could not process that image.')); return }
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result)
+          reader.onerror = () => reject(new Error('Could not read that image.'))
+          reader.readAsDataURL(blob)
+        },
+        'image/jpeg',
+        JPEG_QUALITY
+      )
     }
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image.')) }
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Could not read that image.'))
+    }
     img.src = url
   })
 }
 
-function buildPrompt() {
-  const today = new Date().toISOString().split('T')[0]
-  const year  = new Date().getFullYear()
-  return `Analyze this sports betting slip screenshot and extract the bet details. Today's date is ${today} (year: ${year}). Return ONLY a valid JSON object with these fields:
-
-{
-  "sport": one of ["NFL","NBA","MLB","NHL","NCAAF","NCAAB","Soccer","UFC/MMA","Tennis","Golf","Boxing","Other"],
-  "event": "team vs team or event name as shown",
-  "betType": one of ["Spread","Moneyline","Over/Under","Parlay","Prop","Futures","Teaser","Other"],
-  "odds": American odds as an integer (e.g. -110 or 250, no plus sign needed for positive),
-  "stake": wager amount as a number (no $ sign),
-  "date": "YYYY-MM-DD" using year ${year} unless the slip clearly shows a different year — if no date is visible use "${today}",
-  "notes": any relevant details like spread value, total line, specific prop description, or null
+/** The caller's local date, so a slip with no visible year is dated correctly
+ *  for them rather than for UTC. */
+function localToday() {
+  const d = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-If a field cannot be determined confidently, use null. Return only the JSON, no explanation.`
-}
-
-export async function scanSlip(file, apiKey) {
-  if (!apiKey) throw new Error('OpenAI API key not configured. Add VITE_OPENAI_API_KEY to your .env file.')
-
-  checkRateLimit()
-
-  const imageDataUrl = await compressImage(file)
-
-  const client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true })
-
-  let attempt = 0
-  while (attempt < 3) {
-    try {
-      const response = await client.chat.completions.create({
-        model: 'gpt-4o-mini',
-        max_tokens: 512,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: imageDataUrl, detail: 'low' } },
-            { type: 'text', text: buildPrompt() },
-          ],
-        }],
-      })
-
-      const text = response.choices[0].message.content.trim()
-      const jsonMatch = text.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) throw new Error('Could not parse response from AI.')
-
-      const parsed = JSON.parse(jsonMatch[0])
-      return {
-        sport: parsed.sport || 'Other',
-        event: parsed.event || '',
-        betType: parsed.betType || 'Moneyline',
-        odds: parsed.odds ? parseInt(parsed.odds) : '',
-        stake: parsed.stake ? parseFloat(parsed.stake) : '',
-        date: parsed.date || new Date().toISOString().split('T')[0],
-        notes: parsed.notes || '',
-        outcome: 'pending',
-      }
-    } catch (err) {
-      if (err.status === 429 && attempt < 2) {
-        await new Promise((r) => setTimeout(r, (attempt + 1) * 2000))
-        attempt++
-        continue
-      }
-      throw err
-    }
-  }
+/** Reads one slip. Resolves to the bet object the form expects. */
+export async function scanSlip(file) {
+  const image = await compressImage(file)
+  const { bet } = await scanSlipRemote(image, localToday())
+  return bet
 }
 
 /**
- * Scans several slips at once, at most CONCURRENCY in flight.
- * One slip failing never stops the others — every file gets its own result.
- * `onStart(i)` / `onSettled(i, result)` fire as each slip moves so the UI can
- * update live. Returns results positionally matched to `files`:
+ * Scans several slips, at most CONCURRENCY in flight.
+ *
+ * One slip failing never stops the others — every file gets its own result, so a
+ * single unreadable screenshot in a batch of twenty doesn't cost the other
+ * nineteen. `onStart(i)` / `onSettled(i, result)` fire as each slip moves so the
+ * UI can show per-slip progress. Results are positionally matched to `files`:
  *   { status: 'done', data } | { status: 'error', error }
  */
-export async function scanSlips(files, apiKey, { onStart, onSettled } = {}) {
+export async function scanSlips(files, { onStart, onSettled } = {}) {
   const toResult = (r) =>
     r.status === 'done'
       ? { status: 'done', data: r.value }
       : { status: 'error', error: r.reason?.message || 'Failed to scan slip.' }
 
-  const settled = await mapWithConcurrency(
-    files,
-    CONCURRENCY,
-    (file) => scanSlip(file, apiKey),
-    { onStart, onSettled: (i, r) => onSettled?.(i, toResult(r)) }
-  )
+  const settled = await mapWithConcurrency(files, CONCURRENCY, (file) => scanSlip(file), {
+    onStart,
+    onSettled: (i, r) => onSettled?.(i, toResult(r)),
+  })
   return settled.map(toResult)
 }

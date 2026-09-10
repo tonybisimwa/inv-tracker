@@ -5,6 +5,7 @@ import { Star, Home, TrendingUp, PlusCircle, Clock, GraduationCap, Settings, X }
 import { auth } from '../firebase/config'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdmin } from '../hooks/useAdmin'
+import { formatTimeLeft } from '../utils/entitlements'
 import Logo from './Logo'
 
 const TOP_NAV = [
@@ -26,7 +27,7 @@ const BOTTOM_NAV = [
 ]
 
 export default function Layout({ children }) {
-  const { user } = useAuth()
+  const { user, trial } = useAuth()
   const { isAdmin, isVIP, username } = useAdmin()
   const { pathname } = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -75,9 +76,11 @@ export default function Layout({ children }) {
           </nav>
         </div>
         <div className="flex items-center gap-4">
+          {/* Points at the comparison, not straight at checkout: someone who
+              doesn't yet know what VIP includes isn't ready to pay for it. */}
           {!isVIP && !isAdmin && (
-            <Link to="/vip" className="text-xs font-semibold bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg transition-colors">
-              Upgrade to VIP
+            <Link to="/pricing" className="text-xs font-semibold bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg transition-colors">
+              {trial?.eligible ? 'Try VIP free' : 'Upgrade to VIP'}
             </Link>
           )}
           {isAdmin && (
@@ -136,8 +139,8 @@ export default function Layout({ children }) {
             <Link to="/settings" onClick={closeMenu} className={menuLink(pathname === '/settings')}>Settings</Link>
 
             {!isVIP && !isAdmin && (
-              <Link to="/vip" onClick={closeMenu} className="px-4 py-3.5 rounded-xl text-base font-medium text-purple-400 bg-purple-500/10 mt-2">
-                Upgrade to VIP
+              <Link to="/pricing" onClick={closeMenu} className="px-4 py-3.5 rounded-xl text-base font-medium text-purple-400 bg-purple-500/10 mt-2">
+                {trial?.eligible ? 'Try VIP free for a day' : 'Upgrade to VIP'}
               </Link>
             )}
             {isAdmin && (
@@ -158,8 +161,42 @@ export default function Layout({ children }) {
         </div>
       )}
 
+      {/* ── Trial countdown ──
+          A trial that expires silently feels like access being taken away. A
+          visible clock makes the ending expected, and gives the decision to
+          subscribe somewhere to live before the access disappears. */}
+      {trial?.active && (
+        <div className="bg-purple-500/10 border-b border-purple-500/25 px-4 md:px-6 py-2">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+            <p className="text-xs text-purple-200 flex items-center gap-2 min-w-0">
+              <Star className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+              <span className="truncate">VIP trial · {formatTimeLeft(trial.msLeft)}</span>
+            </p>
+            <Link to="/pricing" className="text-xs font-semibold text-purple-300 hover:text-purple-100 whitespace-nowrap transition-colors">
+              Keep it →
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* ── Page content ── */}
-      <main id="main" className="max-w-7xl mx-auto px-4 md:px-6 py-6 pb-28 md:pb-8">{children}</main>
+      <main id="main" className="max-w-7xl mx-auto px-4 md:px-6 py-6">{children}</main>
+
+      {/* ── Footer ──
+          The age notice and the terms have to be reachable from anywhere in the
+          app: Stripe's review checks for it and the app stores require it. */}
+      <footer className="max-w-7xl mx-auto px-4 md:px-6 pb-28 md:pb-8 pt-2">
+        <div className="border-t border-gray-900 pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <p className="text-[11px] text-gray-600">
+            18+ (21+ where required) · Not financial advice ·{' '}
+            <a href="tel:1-800-522-4700" className="underline hover:text-gray-400">1-800-GAMBLER</a>
+          </p>
+          <div className="flex gap-4 text-[11px] text-gray-600">
+            <Link to="/pricing" className="hover:text-gray-400 transition-colors">Plans</Link>
+            <Link to="/legal" className="hover:text-gray-400 transition-colors">Terms &amp; Privacy</Link>
+          </div>
+        </div>
+      </footer>
 
       {/* ── Mobile bottom nav ── */}
       <nav aria-label="Main" className="md:hidden fixed bottom-0 inset-x-0 bg-gray-900/95 backdrop-blur border-t border-gray-800 flex items-stretch justify-around px-1 pb-safe pt-2 z-40">

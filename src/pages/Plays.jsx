@@ -1,7 +1,9 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Star, BookOpen, Lock, ChevronRight } from 'lucide-react'
+import { PLANS, TRIAL_HOURS } from '../config/plans'
 import { usePlays } from '../hooks/usePlays'
 import { useAdmin } from '../hooks/useAdmin'
+import { useAuth } from '../contexts/AuthContext'
 import { useTipsterSettings } from '../hooks/useTipsterSettings'
 import PlayCard from '../components/PlayCard'
 import Layout from '../components/Layout'
@@ -49,6 +51,7 @@ function Record({ record, plays, tipsterName }) {
 export default function Plays() {
   const { plays, freePlays, vipPlays, loading, vipLocked } = usePlays()
   const { isVIP } = useAdmin()
+  const { trial } = useAuth()
   const { settings } = useTipsterSettings()
   const navigate = useNavigate()
 
@@ -109,20 +112,31 @@ export default function Plays() {
                       : 'VIP Members Only'}
                   </p>
                   <p className="text-sm text-gray-500 max-w-xs mx-auto mt-1">
-                    5 daily plays · 2-unit Best Bet · Statistically-backed Lottery Parlay
+                    Up to 5 best bets a day · The daily lottery parlay · Batch slip scanning
                   </p>
                 </div>
                 <div className="flex gap-2 justify-center flex-wrap">
-                  <span className="text-xs bg-gray-800 text-gray-400 px-3 py-1.5 rounded-full">Weekly · $9.99</span>
-                  <span className="text-xs bg-gray-800 text-gray-400 px-3 py-1.5 rounded-full">Monthly · $29.99</span>
-                  <span className="text-xs bg-gray-800 text-gray-400 px-3 py-1.5 rounded-full">Yearly · $199.99</span>
+                  {PLANS.map((p) => (
+                    <span key={p.id} className="text-xs bg-gray-800 text-gray-400 px-3 py-1.5 rounded-full">
+                      {p.label} · {p.price}
+                    </span>
+                  ))}
                 </div>
+
+                {/* The trial is the better ask when it's available: it converts far
+                    more readily than a price, and it costs someone nothing to try
+                    plays they can't currently see. */}
                 <button
-                  onClick={() => navigate('/vip')}
+                  onClick={() => navigate(trial.eligible ? '/vip' : '/pricing')}
                   className="bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors"
                 >
-                  Unlock VIP Access
+                  {trial.eligible ? `Unlock free for ${TRIAL_HOURS} hours` : 'Unlock VIP Access'}
                 </button>
+                <p className="text-xs text-gray-600">
+                  <Link to="/pricing" className="underline hover:text-gray-400">
+                    See what Standard and VIP each include
+                  </Link>
+                </p>
               </div>
             )
           ) : (
