@@ -115,8 +115,9 @@ signature is over the bytes.
 npm run dev      # dev server
 npm run build    # production build to dist/
 npm run preview  # serve the built bundle
-npm run lint     # oxlint
-npm test         # node:test — pure logic in src/utils
+npm run lint       # oxlint
+npm test           # node:test — pure logic in src/utils
+npm run test:rules # firestore.rules against the emulator (needs a JDK)
 ```
 
 ## Layout
@@ -254,37 +255,46 @@ snap.docs.filter((d) => !d.data().tier).map((d) => d.id)
 
 Backfill any that turn up with `tier: 'free'` before deploying the rules.
 
-### Deploying and testing rules
+### Testing the rules
+
+```bash
+npm run test:rules      # boots the emulator, runs tests/firestore.rules.test.js
+```
+
+58 tests covering every trust boundary in the file: each of the ten privileged
+fields individually, the batch-scan quota, the paywall including expiry, and the
+result-set query behaviour. Run them before every rules deploy — this is the one
+suite in the repo that covers something an attacker would actually try.
+
+Requires a **JDK** for the emulator. It's keg-only on Homebrew, so it needs to be
+on `PATH` rather than just installed:
+
+```bash
+brew install openjdk
+export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+```
+
+The suite has been mutation-checked: deleting `trialStartedAt` from
+`privilegedFields()` fails exactly the two tests that cover it and nothing else.
+If you change the rules and the suite still passes green, confirm it can actually
+fail before believing it.
+
+Two things to know when adding tests:
+
+- Seed fixtures with `withSecurityRulesDisabled`. The documents under test are
+  ones no client may create, so seeding through a normal context would only
+  prove the rules block the seed.
+- `clearFirestore()` in `beforeEach`, or one test's writes satisfy another's
+  read and you get passes that mean nothing.
 
 ```bash
 firebase deploy --only firestore:rules
 ```
 
-Running the rules against the emulator requires a **JDK**, which the rules test
-suite needs and which is not installed in this checkout:
-
-```bash
-brew install openjdk        # prerequisite
-firebase emulators:start --only firestore
-```
-
-**The rules in this repo have never been executed.** No JDK is installed here, so
-the emulator has never run against them. Until it does, verify by hand after
-deploying, signed in as each role:
-
-- [ ] Non-VIP loads `/plays` and sees free plays
-- [ ] Non-VIP receives **no** VIP plays (check the network payload, not just the blur)
-- [ ] VIP and admin both see VIP plays unblurred
-- [ ] A user writing `{isAdmin: true}` to their own profile is denied
-- [ ] A user writing `{isVIP: true}` or `{trialStartedAt: null}` is denied
-- [ ] A user writing to `users/{uid}/usage/scans` is denied
-- [ ] Saving bankroll / unit size / lesson progress still succeeds
-- [ ] Admin approve and revoke VIP still work
-
 ## Pre-launch checklist
 
 - [ ] Run the `tier` backfill above
-- [ ] Deploy and hand-verify the rules (see the checklist above)
+- [ ] `npm run test:rules`, then deploy the rules
 - [ ] Set `isAdmin` on your own user from the console
 - [ ] Stripe: products, prices, secrets, webhook, portal enabled; test-card run
 - [ ] Switch Stripe to live keys and re-register the live webhook (its signing
@@ -304,9 +314,11 @@ deploying, signed in as each role:
   allowance, the journal — and treats picks as included. That underwrites much
   closer to SaaS, and it's why `FEATURE_MATRIX` puts "Your journal" first. Don't
   reorder it to lead with picks without understanding what you're trading.
-- **The rules have never been emulator-tested** (`brew install openjdk` to fix).
-- No automated coverage of components or rules; `npm test` covers pure utils and
-  the client/server plan parity only.
+- No automated coverage of components or of the Cloud Functions themselves.
+  `npm test` covers pure utils and client/server plan parity; `npm run test:rules`
+  covers the rules. The functions' own logic — the scan quota transaction, the
+  webhook's subscription mapping — is only reasoned about, not executed. The
+  quota transaction is the highest-value gap, since it's what caps the bill.
 - Not built yet: analytics, offline persistence, auto-settling results from a
   scores API, push when plays drop, a trial-ending email.
 
