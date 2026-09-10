@@ -6,7 +6,7 @@
   "functions": {
     "source": "functions",
     "codebase": "default",
-    "ignore": ["node_modules", ".git", "*.log", ".env", ".env.*"]
+    "ignore": ["node_modules", ".git", "*.log", ".env", ".env.*", "*.test.js"]
   },
   "hosting": {
     "public": "dist",

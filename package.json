@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "test": "node --test \"src/**/*.test.js\"",
     "test:rules": "firebase emulators:exec --only firestore \"node --test tests/firestore.rules.test.js\"",
+    "test:functions": "firebase emulators:exec --only firestore \"node --test functions/scan.test.js\"",
     "preview": "vite preview"
   },
   "dependencies": {

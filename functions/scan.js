@@ -15,6 +15,10 @@ const BET_TYPES = ['Spread', 'Moneyline', 'Over/Under', 'Parlay', 'Prop', 'Futur
 
 const quotaRef = (uid) => userRef(uid).collection('usage').doc('scans')
 
+// claimScan, refundScan, describeReset and normalise are exported for scan.test.js.
+// Only scanSlip is a deployed entry point — index.js re-exports that alone, so the
+// others are internal despite the keyword.
+
 /**
  * Claims one scan against the caller's allowance, or refuses.
  *
@@ -27,7 +31,7 @@ const quotaRef = (uid) => userRef(uid).collection('usage').doc('scans')
  * so it needs no timezone from the client — and therefore can't be gamed by
  * lying about one. The array is trimmed to the limit so the doc stays small.
  */
-async function claimScan(uid, limit) {
+export async function claimScan(uid, limit) {
   const ref = quotaRef(uid)
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref)
@@ -54,7 +58,7 @@ async function claimScan(uid, limit) {
 }
 
 /** Hands back a claimed scan when the work it paid for failed on our side. */
-async function refundScan(uid, stamp) {
+export async function refundScan(uid, stamp) {
   try {
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(quotaRef(uid))
@@ -70,7 +74,7 @@ async function refundScan(uid, stamp) {
   }
 }
 
-function describeReset(ms) {
+export function describeReset(ms) {
   const mins = Math.ceil(ms / 60000)
   if (mins < 60) return `in ${mins} minute${mins === 1 ? '' : 's'}`
   const hours = Math.ceil(mins / 60)
@@ -100,7 +104,7 @@ If a field cannot be determined confidently, use null. Return only the JSON, no 
 }
 
 /** Shapes the model's output into the exact bet object the form expects. */
-function normalise(parsed, today) {
+export function normalise(parsed, today) {
   const odds = Number.parseInt(parsed.odds, 10)
   const stake = Number.parseFloat(parsed.stake)
   return {

@@ -115,9 +115,10 @@ signature is over the bytes.
 npm run dev      # dev server
 npm run build    # production build to dist/
 npm run preview  # serve the built bundle
-npm run lint       # oxlint
-npm test           # node:test — pure logic in src/utils
-npm run test:rules # firestore.rules against the emulator (needs a JDK)
+npm run lint           # oxlint
+npm test               # node:test — pure logic in src/utils
+npm run test:rules     # firestore.rules against the emulator (needs a JDK)
+npm run test:functions # the scan allowance against the emulator (needs a JDK)
 ```
 
 ## Layout
@@ -188,7 +189,18 @@ in Kiritimati. A batch upload fires scans concurrently, which is why the claim
 is a transaction and not read-then-write.
 
 A scan that fails after the claim is refunded by removing that exact timestamp,
-so an OpenAI outage doesn't burn someone's allowance.
+so an OpenAI outage doesn't burn someone's allowance. The stamp has to be the
+value the transaction actually stored — an earlier version computed it before the
+transaction ran, so the refund never matched and failures quietly kept charging.
+
+```bash
+npm run test:functions
+```
+
+32 tests, and the one that matters most fires 20 concurrent claims against a
+limit of 5 and asserts exactly 5 are granted. It is also mutation-checked:
+replacing `runTransaction` with a read-then-write makes it fail (all 20 pass),
+which is the answer to "why is this a transaction?".
 
 ### The trial
 
@@ -314,11 +326,10 @@ firebase deploy --only firestore:rules
   allowance, the journal — and treats picks as included. That underwrites much
   closer to SaaS, and it's why `FEATURE_MATRIX` puts "Your journal" first. Don't
   reorder it to lead with picks without understanding what you're trading.
-- No automated coverage of components or of the Cloud Functions themselves.
-  `npm test` covers pure utils and client/server plan parity; `npm run test:rules`
-  covers the rules. The functions' own logic — the scan quota transaction, the
-  webhook's subscription mapping — is only reasoned about, not executed. The
-  quota transaction is the highest-value gap, since it's what caps the bill.
+- No automated coverage of React components, and none of the Stripe webhook's
+  subscription mapping — that one is reasoned about, not executed, and it's the
+  biggest remaining gap now that the quota is covered. Testing it properly wants
+  the Stripe CLI's `stripe trigger` against the emulator.
 - Not built yet: analytics, offline persistence, auto-settling results from a
   scores API, push when plays drop, a trial-ending email.
 
