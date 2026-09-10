@@ -21,8 +21,19 @@ service cloud.firestore {
     // These fields decide what a user can see and do. If a user can write them
     // on their own profile they can simply grant themselves admin, so they are
     // admin-only — everything else on the profile is the owner's to edit.
+    //
+    // trialStartedAt is here for a subtler reason: it is written once, by a Cloud
+    // Function, and "one free trial per account" holds only because a client
+    // cannot clear it and ask for another. The stripe* fields are the billing
+    // link — a client that could forge stripeCustomerId could claim someone
+    // else's subscription, and one that could clear it could re-take a trial.
+    //
+    // Cloud Functions use the Admin SDK, which bypasses these rules entirely,
+    // so this list locks the fields down without blocking the server that owns them.
     function privilegedFields() {
-      return ['isAdmin', 'isVIP', 'vipPlan', 'vipUntil', 'vipUntilMs'];
+      return ['isAdmin', 'isVIP', 'vipPlan', 'vipUntil', 'vipUntilMs',
+              'trialStartedAt', 'stripeCustomerId', 'stripeSubscriptionId',
+              'stripeStatus', 'cancelAtPeriodEnd'];
     }
 
     // VIP that hasn't lapsed. vipUntilMs is an epoch-millis mirror of the
@@ -56,6 +67,15 @@ service cloud.firestore {
       // A user's bet journal is private to them — admins included
       match /bets/{betId} {
         allow read, write: if isOwner(uid);
+      }
+
+      // Scan allowance. Readable so the UI can show "3 scans left" live, but
+      // writable by nobody: the counter is the thing standing between a stolen
+      // session and our OpenAI bill, so only the Cloud Function (via the Admin
+      // SDK, which bypasses rules) may move it.
+      match /usage/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
       }
     }
 
